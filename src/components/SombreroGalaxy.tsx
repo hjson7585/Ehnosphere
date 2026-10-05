@@ -146,9 +146,9 @@ export default function SombreroGalaxy({
 
     const a16 = (v: number) => Math.min(1, Math.max(0, v)).toFixed(3);
 
-    /** Width that lets the photograph run past every edge of the window. */
+    /** Width of the mosaic — sized so the galaxy sits a little farther away. */
     const photoWidth = (width: number, height: number) =>
-      Math.max(width * 1.1, Math.min(width * 0.47, height * 0.62) * 2.25);
+      Math.max(width * 0.98, Math.min(width * 0.47, height * 0.62) * 1.9);
 
     /**
      * Pre-render the mosaic at device resolution with every edge faded to
