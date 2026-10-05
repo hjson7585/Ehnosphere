@@ -17,8 +17,13 @@ const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 // Simple loading fallback for route transitions
 function RouteLoading() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-pulse text-muted-foreground">Loading...</div>
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex items-center gap-3 text-muted-foreground">
+        <span className="size-2 animate-pulse rounded-full bg-primary" />
+        <span className="text-sm tracking-[0.3em] uppercase">
+          은하를 그리는 중
+        </span>
+      </div>
     </div>
   );
 }

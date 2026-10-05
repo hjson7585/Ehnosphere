@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/input-otp";
 
 import { useAuth } from "@/hooks/use-auth";
-import logo from "@/assets/logo.svg";
+import SombreroGalaxy from "@/components/SombreroGalaxy";
+import { GalaxyMark } from "@/components/GalaxyMark";
 import { ArrowRight, Loader2, Mail, UserX } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -110,29 +111,37 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="relative min-h-screen flex flex-col">
+      {/* 솜브레로 은하 배경 */}
+      <SombreroGalaxy />
+      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(to_bottom,rgba(4,5,12,0.75),rgba(4,5,12,0.45))]" />
 
-      
       {/* Auth Content */}
-      <div className="flex-1 flex items-center justify-center">
+      <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-12">
         <div className="flex items-center justify-center h-full flex-col">
-        <Card className="min-w-[350px] pb-0 border shadow-md">
+        <p className="font-display text-glow mb-6 text-center text-3xl font-semibold text-foreground">
+          솜브레로 은하 관측실
+          <span className="mt-1 block text-xs font-normal tracking-[0.4em] text-primary/80 uppercase">
+            M104 Observatory
+          </span>
+        </p>
+        <Card className="panel-space min-w-[350px] max-w-[calc(100vw-2rem)] pb-0 shadow-[0_30px_80px_-40px_rgba(0,0,0,0.9)]">
           {step === "signIn" ? (
             <>
               <CardHeader className="text-center">
               <div className="flex justify-center">
-                    <img
-                      src={logo}
-                      alt="Lock Icon"
-                      width={64}
-                      height={64}
-                      className="rounded-lg mb-4 mt-4 cursor-pointer"
+                    <button
+                      type="button"
+                      aria-label="홈으로"
+                      className="mb-4 mt-4 cursor-pointer transition-transform hover:scale-105"
                       onClick={() => navigate("/")}
-                    />
+                    >
+                      <GalaxyMark className="size-14" />
+                    </button>
                   </div>
-                <CardTitle className="text-xl">Get Started</CardTitle>
+                <CardTitle className="font-display text-2xl">관측실 입장</CardTitle>
                 <CardDescription>
-                  Enter your email to log in or sign up
+                  이메일로 코드를 받아 로그인하거나 가입하세요
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleEmailSubmit}>
@@ -173,9 +182,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         <span className="w-full border-t" />
                       </div>
                       <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-background px-2 text-muted-foreground">
-                          Or
-                        </span>
+                      <span className="bg-background px-2 text-muted-foreground">
+                        또는
+                      </span>
                       </div>
                     </div>
                     
@@ -187,7 +196,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       disabled={isLoading}
                     >
                       <UserX className="mr-2 h-4 w-4" />
-                      Continue as Guest
+                      게스트로 계속하기
                     </Button>
                   </div>
                 </CardContent>
@@ -196,9 +205,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           ) : (
             <>
               <CardHeader className="text-center mt-4">
-                <CardTitle>Check your email</CardTitle>
+                <CardTitle className="font-display text-2xl">이메일을 확인하세요</CardTitle>
                 <CardDescription>
-                  We've sent a code to {step.email}
+                  {step.email} 로 6자리 코드를 보냈습니다
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleOtpSubmit}>
@@ -235,13 +244,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     </p>
                   )}
                   <p className="text-sm text-muted-foreground text-center mt-4">
-                    Didn't receive a code?{" "}
+                    코드가 오지 않았나요?{" "}
                     <Button
                       variant="link"
                       className="p-0 h-auto"
                       onClick={() => setStep("signIn")}
                     >
-                      Try again
+                      다시 보내기
                     </Button>
                   </p>
                 </CardContent>
@@ -254,11 +263,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Verifying...
+                        확인 중...
                       </>
                     ) : (
                       <>
-                        Verify code
+                        코드 확인
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </>
                     )}
@@ -270,14 +279,14 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     disabled={isLoading}
                     className="w-full"
                   >
-                    Use different email
+                    다른 이메일 사용
                   </Button>
                 </CardFooter>
               </form>
             </>
           )}
 
-          <div className="py-4 px-6 text-xs text-center text-muted-foreground bg-muted border-t rounded-b-lg">
+          <div className="py-4 px-6 text-xs text-center text-muted-foreground bg-muted/70 border-t rounded-b-lg">
             Secured by{" "}
             <a
               href="https://freebuff.com"
