@@ -14,16 +14,14 @@ const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
-// Simple loading fallback for route transitions
+// Text-free loading fallback: a single brass pulse on the night sky.
 function RouteLoading() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="flex items-center gap-3 text-muted-foreground">
-        <span className="size-2 animate-pulse rounded-full bg-primary" />
-        <span className="text-sm tracking-[0.3em] uppercase">
-          은하를 그리는 중
-        </span>
-      </div>
+    <div className="min-h-screen items-center justify-center bg-background flex">
+      <span
+        aria-hidden="true"
+        className="size-2.5 animate-pulse rounded-full bg-primary shadow-[0_0_18px_rgba(255,196,126,0.8)]"
+      />
     </div>
   );
 }

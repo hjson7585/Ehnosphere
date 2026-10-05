@@ -23,9 +23,9 @@ export type SombreroGalaxyProps = {
   density?: number;
   /** Gentle pointer parallax on the galaxy centre. */
   parallax?: boolean;
-  /** Horizontal anchor of the galactic core, 0–1 (portrait stays centred). */
+  /** Horizontal anchor of the galactic core, 0–1. */
   centerX?: number;
-  /** Vertical anchor of the galactic core, 0–1 (portrait caps at 0.45). */
+  /** Vertical anchor of the galactic core, 0–1. */
   centerY?: number;
 };
 
@@ -401,11 +401,8 @@ export default function SombreroGalaxy({
       px += (goalX - px) * Math.min(1, dt * 1.8);
       py += (goalY - py) * Math.min(1, dt * 1.8);
 
-      const landscape = w >= h;
-      const fx = landscape ? p.centerX : 0.5;
-      const fy = landscape ? p.centerY : Math.min(p.centerY, 0.45);
-      cx = w * fx + px;
-      cy = h * fy + py + (frozen ? 0 : Math.sin(t * 0.09) * 8);
+      cx = w * p.centerX + px;
+      cy = h * p.centerY + py + (frozen ? 0 : Math.sin(t * 0.09) * 8);
       R = Math.min(w * 0.47, h * 0.62);
       const pulse = frozen ? 1 : 1 + 0.09 * Math.sin(t * 0.42) + 0.035 * Math.sin(t * 1.05 + 2.4);
       g = Math.max(0, p.glow * pulse);

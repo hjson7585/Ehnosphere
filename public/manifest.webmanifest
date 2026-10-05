@@ -1,11 +1,11 @@
 {
-  "name": "freebuff.com application",
-  "short_name": "freebuff.com",
-  "description": "freebuff.com application",
+  "name": "Project 1",
+  "short_name": "Project 1",
+  "description": "천천히 회전하는 솜브레로 은하 한가운데 자리한 아날로그 시계.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#070a15",
+  "theme_color": "#070a15",
   "icons": [
     {
       "src": "/logo.svg",
