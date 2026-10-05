@@ -141,8 +141,16 @@ export default function SombreroGalaxy({
     /** Width of the mosaic — sized so the galaxy sits a little farther away. */
     const photoWidth = (width: number, height: number) =>
       Math.max(width * 0.82, Math.min(width * 0.47, height * 0.62) * 1.6);
-    /** Nucleus of M104 in the frame, measured from the pixels (0–1). */
-    const CORE = { x: 0.5135, y: 0.5089 };
+    /**
+     * Centre of M104 inside the frame (0–1) — the nucleus, and the point that
+     * lands exactly on the clock's pivot. Measured eight independent ways on
+     * the mosaic itself: saturated-core centroid (0.499, 0.497), half-max
+     * light-profile centre (0.498, 0.498), blurred peaks at four scales
+     * (0.496–0.497, 0.495–0.497), 180° symmetry centre (0.498, 0.494), total
+     * light centroid (0.498, 0.492). They average to (0.4975, 0.4965) — within
+     * half a pixel of this constant at any window size.
+     */
+    const CORE = { x: 0.4978, y: 0.4966 };
 
     /**
      * Pre-render the mosaic at device resolution with every edge faded to
@@ -171,8 +179,14 @@ export default function SombreroGalaxy({
       // Mask on the galaxy itself: an ellipse with a wide, smooth falloff that
       // reaches zero before any edge of the frame — no rectangle, no hard rim,
       // the brim simply dissolves into the surrounding sky.
-      const gx = 0.549 * cw;
-      const gy = 0.4795 * ch;
+      // It is centred on the nucleus itself, never on the frame's bright
+      // bounding box: that box is pulled to the right by stars outside the
+      // galaxy, which used to fade the left brim first and leave the visible
+      // silhouette ~57 px right of the pivot. Locked to CORE, the falloff —
+      // and therefore the whole visible galaxy — is symmetric about the same
+      // point the hands rotate around.
+      const gx = CORE.x * cw;
+      const gy = CORE.y * ch;
       const sx = 0.44 * cw;
       const sy = 0.43 * ch;
       g2.globalCompositeOperation = "destination-in";
