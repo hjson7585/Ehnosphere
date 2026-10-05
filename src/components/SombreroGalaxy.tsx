@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import sombreroPhoto from "@/assets/sombrero-galaxy.jpg";
-import sombreroPhotoStd from "@/assets/sombrero-galaxy-3072.jpg";
+import sombreroPhotoMid from "@/assets/sombrero-galaxy-4096.jpg";
+import sombreroPhotoLight from "@/assets/sombrero-galaxy-2048.jpg";
 
 /**
  * SombreroGalaxy — the real Hubble portrait of M104 as a living backdrop.
@@ -247,24 +248,34 @@ export default function SombreroGalaxy({
     const photo = new Image();
     let photoReady = false;
     /**
-     * Two masters of the same Hubble mosaic: a 7680 px archive encode and a
-     * 3072 px everyday one (1.3 MB). We fetch whichever the panel can actually
-     * resolve — mosaic width × device pixel ratio — so a phone stays light and
-     * a big display gets the full art. The choice is revisited on resize, but
-     * once the archive master is on screen it is never traded back down.
+     * Three Q95 4:4:4 encodes of the same Hubble mosaic — 7680 / 4096 / 2048 px
+     * wide (18.0 / 4.1 / 0.7 MB). We fetch the smallest one that still covers
+     * the layer's device width (mosaic width × pixel ratio), so the photograph
+     * is never upscaled: a phone stays light, a studio display gets the full
+     * art. The choice is revisited on resize but only ever traded upward, and
+     * any encode that errors is dropped from the ladder for good.
      */
-    const needsArchive = (width: number, height: number) =>
-      photoWidth(width, height) * dpr > 3072;
+    const failedPhotos = new Set<string>();
     let photoSrc = "";
-    let archiveFailed = false;
+    let photoRank = -1;
+    const pickTier = (vw: number, vh: number) => {
+      const need = photoWidth(vw, vh) * dpr;
+      if (need > 4096 && !failedPhotos.has(sombreroPhoto))
+        return { src: sombreroPhoto, rank: 2 };
+      if (need > 2048 && !failedPhotos.has(sombreroPhotoMid))
+        return { src: sombreroPhotoMid, rank: 1 };
+      return failedPhotos.has(sombreroPhotoLight)
+        ? null
+        : { src: sombreroPhotoLight, rank: 0 };
+    };
     const loadPhoto = () => {
       const [vw, vh] =
         w > 1 && h > 1 ? [w, h] : [window.innerWidth, window.innerHeight];
-      const next = needsArchive(vw, vh) && !archiveFailed ? sombreroPhoto : sombreroPhotoStd;
-      if (next === photoSrc) return;
-      if (photoSrc === sombreroPhoto) return;
-      photoSrc = next;
-      photo.src = next;
+      const tier = pickTier(vw, vh);
+      if (!tier || tier.rank <= photoRank) return; // never trade back down
+      photoSrc = tier.src;
+      photoRank = tier.rank;
+      photo.src = tier.src;
     };
     const onPhotoLoad = () => {
       photoReady = true;
@@ -272,16 +283,25 @@ export default function SombreroGalaxy({
       needsDraw = true;
     };
     const onPhotoError = () => {
-      // the archive master can fail on a memory-tight device: fall back to the
-      // everyday encode, and only give up once that one is gone too
-      if (photoSrc === sombreroPhoto) {
-        archiveFailed = true;
-        photoSrc = sombreroPhotoStd;
-        photo.src = sombreroPhotoStd;
+      // a big encode can fail on a memory-tight device: step down the ladder
+      // and try the next one, and only hand over to the drawn disk once even
+      // the lightest encode is gone
+      failedPhotos.add(photoSrc);
+      const next =
+        photoSrc === sombreroPhoto
+          ? sombreroPhotoMid
+          : photoSrc === sombreroPhotoMid
+            ? sombreroPhotoLight
+            : "";
+      if (next) {
+        photoSrc = next;
+        photoRank = next === sombreroPhotoMid ? 1 : 0;
+        photo.src = next;
         return;
       }
       photoReady = false;
       photoLayer = null;
+      photoRank = -1;
       needsDraw = true;
     };
     photo.addEventListener("load", onPhotoLoad);
@@ -411,7 +431,7 @@ export default function SombreroGalaxy({
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
       buildBackground();
-      loadPhoto(); // upgrade-only: swaps in the archive master when the panel grows
+      loadPhoto(); // only trades upward: a sharper encode when the panel grows
       if (photoReady) buildPhotoLayer();
       vignette = ctx.createRadialGradient(
         w / 2,
