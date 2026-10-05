@@ -1,4 +1,4 @@
-import SombreroGalaxy from "@/components/SombreroGalaxy";
+import SombreroGalaxy, { BASE_PERIOD } from "@/components/SombreroGalaxy";
 import { GalaxyMark } from "@/components/GalaxyMark";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -135,7 +135,10 @@ export default function Dashboard() {
     navigate("/");
   };
 
-  const period = settings.speed === 0 ? "정지" : `${(108 / settings.speed).toFixed(1)}초 / 회`;
+  const period =
+    settings.speed === 0
+      ? "정지"
+      : `${(BASE_PERIOD / settings.speed).toFixed(1)}초 / 회`;
 
   return (
     <div className="relative min-h-screen">

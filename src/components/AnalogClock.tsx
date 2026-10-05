@@ -60,13 +60,14 @@ export default function AnalogClock({ className = "" }: { className?: string }) 
       {/* warm halo, as if the dial caught the galactic core */}
       <div className="pointer-events-none absolute -inset-[7%] rounded-full bg-[radial-gradient(circle,rgba(255,196,126,0.12),transparent_66%)]" />
 
-      {/* smoked-glass face */}
-      <div className="absolute inset-0 rounded-full border border-[rgba(255,214,160,0.2)] bg-[radial-gradient(circle_at_32%_26%,rgba(18,25,42,0.52),rgba(3,5,11,0.9))] shadow-[0_50px_140px_-50px_rgba(0,0,0,0.95),inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_-30px_60px_rgba(0,0,0,0.55)] backdrop-blur-[3px]" />
+      {/* smoked-glass face — thin on purpose, so the galaxy reads straight through it */}
+      <div className="absolute inset-0 rounded-full border border-[rgba(255,214,160,0.26)] bg-[radial-gradient(circle_at_32%_26%,rgba(8,12,24,0.18),rgba(3,5,11,0.4))] shadow-[0_50px_140px_-60px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.14)] backdrop-blur-[2px]" />
 
       {/* dial: minute track + brushed indices */}
       <svg
         viewBox="0 0 400 400"
         className="absolute inset-0 h-full w-full"
+        style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.6))" }}
         aria-hidden="true"
       >
         <defs>
@@ -127,7 +128,7 @@ export default function AnalogClock({ className = "" }: { className?: string }) 
         className="absolute inset-0 will-change-transform"
         style={{ transform: "rotate(0deg)" }}
       >
-        <div className="absolute top-1/2 left-1/2 h-[22%] w-[2.6%] -translate-x-1/2 -translate-y-full rounded-full bg-[linear-gradient(180deg,#fff7e9_0%,#f0d7a9_60%,#c99d5f_100%)] shadow-[0_0_16px_rgba(255,214,160,0.4)]" />
+        <div className="absolute top-1/2 left-1/2 h-[22%] w-[2.6%] -translate-x-1/2 -translate-y-full rounded-full bg-[linear-gradient(180deg,#fff7e9_0%,#f0d7a9_60%,#c99d5f_100%)] shadow-[0_0_16px_rgba(255,214,160,0.45),0_1px_10px_rgba(0,0,0,0.6)]" />
       </div>
 
       {/* minute hand */}
@@ -136,7 +137,7 @@ export default function AnalogClock({ className = "" }: { className?: string }) 
         className="absolute inset-0 will-change-transform"
         style={{ transform: "rotate(0deg)" }}
       >
-        <div className="absolute top-1/2 left-1/2 h-[32%] w-[1.7%] -translate-x-1/2 -translate-y-full rounded-full bg-[linear-gradient(180deg,#fffaef_0%,#f3ddb6_60%,#d2a765_100%)] shadow-[0_0_18px_rgba(255,222,178,0.42)]" />
+        <div className="absolute top-1/2 left-1/2 h-[32%] w-[1.7%] -translate-x-1/2 -translate-y-full rounded-full bg-[linear-gradient(180deg,#fffaef_0%,#f3ddb6_60%,#d2a765_100%)] shadow-[0_0_18px_rgba(255,222,178,0.45),0_1px_10px_rgba(0,0,0,0.6)]" />
       </div>
 
       {/* sweeping seconds needle + counterweight */}
@@ -145,7 +146,7 @@ export default function AnalogClock({ className = "" }: { className?: string }) 
         className="absolute inset-0 will-change-transform"
         style={{ transform: "rotate(0deg)" }}
       >
-        <div className="absolute top-1/2 left-1/2 h-[35%] w-[0.5%] -translate-x-1/2 -translate-y-full rounded-full bg-[linear-gradient(180deg,#f0b877,#c07f3c)] shadow-[0_0_12px_rgba(240,176,110,0.5)]" />
+        <div className="absolute top-1/2 left-1/2 h-[35%] w-[0.5%] -translate-x-1/2 -translate-y-full rounded-full bg-[linear-gradient(180deg,#f0b877,#c07f3c)] shadow-[0_0_12px_rgba(240,176,110,0.5),0_1px_8px_rgba(0,0,0,0.55)]" />
         <div className="absolute top-1/2 left-1/2 h-[9%] w-[2.6%] -translate-x-1/2 rounded-full bg-[#d99a52]" />
       </div>
 

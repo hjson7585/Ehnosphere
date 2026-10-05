@@ -1,21 +1,23 @@
 import { useEffect, useRef } from "react";
+import sombreroPhoto from "@/assets/sombrero-galaxy.jpg";
 
 /**
- * SombreroGalaxy — a procedurally rendered M104 backdrop.
+ * SombreroGalaxy — the real Hubble portrait of M104 as a living backdrop.
  *
- * The disk is ~1k additive particles projected through a near edge-on
- * inclination (so it reads as a brim, not a spiral), wrapped around a
- * luminous central bulge that breathes, with a dark dust lane drawn in
- * front of the near half. Every moving part reads the same rotation
- * angle, so a page can change speed / glow / density at any time without
- * restarting the animation.
+ * The galaxy itself is the Hubble Space Telescope mosaic (NASA/ESA, 2003),
+ * drawn additively so its black sky stays transparent over our starfield,
+ * turning slowly around the galactic core and breathing in brightness.
+ * If the photo ever fails to load, it falls back to a procedurally drawn
+ * disk — ~1k additive particles, a luminous bulge and a dark dust lane.
+ * Every moving part reads the same rotation angle, so a page can change
+ * speed / glow / density live without restarting the animation.
  *
  * Respects `prefers-reduced-motion`: the scene renders once and freezes.
  */
 export type SombreroGalaxyProps = {
   /** Extra classes for the fixed wrapper (positioning, z-index). */
   className?: string;
-  /** Rotation multiplier. 1 ≈ 108 s per revolution, 0 freezes the disk. */
+  /** Rotation multiplier. 1 ≈ 300 s per revolution, 0 freezes the disk. */
   speed?: number;
   /** Core luminosity, 0–2. */
   glow?: number;
@@ -30,8 +32,8 @@ export type SombreroGalaxyProps = {
 };
 
 const TAU = Math.PI * 2;
-/** Seconds per revolution at speed = 1. */
-const BASE_PERIOD = 108;
+/** Seconds per revolution at speed = 1 — a stately, barely-there turn. */
+export const BASE_PERIOD = 300;
 /** Viewing inclination — nearly edge-on, like the Hubble portrait, so the
  *  brim stays thin and the bulge reads taller than the disk. */
 const COS_I = Math.cos((78 * Math.PI) / 180);
@@ -135,6 +137,21 @@ export default function SombreroGalaxy({
     let pScale = 1;
 
     const a16 = (v: number) => Math.min(1, Math.max(0, v)).toFixed(3);
+
+    // Real M104 portrait; the drawn disk stays as the fallback.
+    const photo = new Image();
+    let photoReady = false;
+    const onPhotoLoad = () => {
+      photoReady = true;
+      needsDraw = true;
+    };
+    const onPhotoError = () => {
+      photoReady = false;
+      needsDraw = true;
+    };
+    photo.addEventListener("load", onPhotoLoad);
+    photo.addEventListener("error", onPhotoError);
+    photo.src = sombreroPhoto;
 
     function buildParticles(density: number) {
       const next: DiskParticle[][] = [[], [], [], []];
@@ -287,6 +304,23 @@ export default function SombreroGalaxy({
       ctx.restore();
     }
 
+    /** The Hubble mosaic, spinning slowly around the galactic core. */
+    function drawPhoto() {
+      const iw = photo.naturalWidth;
+      const ih = photo.naturalHeight;
+      if (!iw || !ih) return;
+      const dw = R * 2.2;
+      const dh = (ih / iw) * dw;
+      ctx.save();
+      // additive: the photo's black sky adds nothing, so no rectangle shows
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = Math.min(1, 0.82 * g);
+      ctx.translate(cx, cy);
+      ctx.rotate(rot);
+      ctx.drawImage(photo, -dw * 0.5, -dh * 0.5, dw, dh);
+      ctx.restore();
+    }
+
     function drawHalo() {
       ctx.globalCompositeOperation = "lighter";
       const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.35);
@@ -414,12 +448,16 @@ export default function SombreroGalaxy({
       if (bg) ctx.drawImage(bg, 0, 0, w, h);
 
       drawHalo();
-      drawDiskBody();
-      drawDisk(false); // far half of the brim
-      drawDust(false); // far dust lane, behind the bulge
-      drawBulge();
-      drawDisk(true); // near half of the brim
-      drawDust(true); // dark lane crossing in front of the core
+      if (photoReady) {
+        drawPhoto(); // real Hubble M104
+      } else {
+        drawDiskBody();
+        drawDisk(false); // far half of the brim
+        drawDust(false); // far dust lane, behind the bulge
+        drawBulge();
+        drawDisk(true); // near half of the brim
+        drawDust(true); // dark lane crossing in front of the core
+      }
       drawForegroundStars();
 
       ctx.globalCompositeOperation = "source-over";
@@ -463,6 +501,9 @@ export default function SombreroGalaxy({
       cancelAnimationFrame(raf);
       observer.disconnect();
       window.removeEventListener("pointermove", onPointerMove);
+      photo.removeEventListener("load", onPhotoLoad);
+      photo.removeEventListener("error", onPhotoError);
+      photo.src = "";
       redrawRef.current = null;
     };
   }, []);
