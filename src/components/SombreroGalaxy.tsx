@@ -24,8 +24,6 @@ export type SombreroGalaxyProps = {
   glow?: number;
   /** Disk material and field-star density, 0.4–2. */
   density?: number;
-  /** Gentle pointer parallax on the galaxy centre. */
-  parallax?: boolean;
   /** Horizontal anchor of the galactic core, 0–1. */
   centerX?: number;
   /** Vertical anchor of the galactic core, 0–1. */
@@ -80,19 +78,18 @@ export default function SombreroGalaxy({
   speed = 1,
   glow = 1,
   density = 1,
-  parallax = false,
   centerX = 0.5,
   centerY = 0.5,
 }: SombreroGalaxyProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const params = useRef({ speed, glow, density, parallax, centerX, centerY });
+  const params = useRef({ speed, glow, density, centerX, centerY });
   const redrawRef = useRef<(() => void) | null>(null);
 
   // Keep live control values without tearing down the animation loop.
   useEffect(() => {
-    params.current = { speed, glow, density, parallax, centerX, centerY };
+    params.current = { speed, glow, density, centerX, centerY };
     redrawRef.current?.();
-  }, [speed, glow, density, parallax, centerX, centerY]);
+  }, [speed, glow, density, centerX, centerY]);
 
   useEffect(() => {
     const maybeCanvas = canvasRef.current;
@@ -124,12 +121,7 @@ export default function SombreroGalaxy({
     let last = performance.now();
     let raf = 0;
     let needsDraw = true;
-    // parallax / bob
-    let px = 0;
-    let py = 0;
-    let pointerX = 0;
-    let pointerY = 0;
-    // per-frame geometry shared with the draw helpers
+    /** per-frame geometry shared with the draw helpers */
     let cx = 0;
     let cy = 0;
     let R = 1;
@@ -148,7 +140,9 @@ export default function SombreroGalaxy({
 
     /** Width of the mosaic — sized so the galaxy sits a little farther away. */
     const photoWidth = (width: number, height: number) =>
-      Math.max(width * 0.98, Math.min(width * 0.47, height * 0.62) * 1.9);
+      Math.max(width * 0.82, Math.min(width * 0.47, height * 0.62) * 1.6);
+    /** Nucleus of M104 in the frame, measured from the pixels (0–1). */
+    const CORE = { x: 0.5135, y: 0.5089 };
 
     /**
      * Pre-render the mosaic at device resolution with every edge faded to
@@ -375,8 +369,8 @@ export default function SombreroGalaxy({
       if (!iw || !ih) return;
       const dw = photoWidth(w, h);
       const dh = (ih / iw) * dw;
-      const x0 = cx - 0.549 * dw;
-      const y0 = cy - 0.4795 * dh;
+      const x0 = cx - CORE.x * dw;
+      const y0 = cy - CORE.y * dh;
       ctx.save();
       // painted straight on — photographic tonality, no additive blow-out
       ctx.globalCompositeOperation = "source-over";
@@ -411,14 +405,16 @@ export default function SombreroGalaxy({
     }
 
     function drawHalo() {
+      // keep the bloom hugging the galaxy, however far away it is
+      const hr = photoReady ? photoWidth(w, h) * 0.52 : R * 1.35;
       ctx.globalCompositeOperation = "lighter";
-      const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.35);
+      const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, hr);
       halo.addColorStop(0, `rgba(255, 186, 116, ${a16(0.15 * g)})`);
       halo.addColorStop(0.34, `rgba(233, 148, 86, ${a16(0.075 * g)})`);
       halo.addColorStop(0.72, `rgba(140, 96, 62, ${a16(0.028 * g)})`);
       halo.addColorStop(1, "rgba(90, 70, 60, 0)");
       ctx.fillStyle = halo;
-      ctx.fillRect(cx - R * 1.4, cy - R * 1.4, R * 2.8, R * 2.8);
+      ctx.fillRect(cx - hr * 1.05, cy - hr * 1.05, hr * 2.1, hr * 2.1);
     }
 
     function drawDisk(near: boolean) {
@@ -520,13 +516,10 @@ export default function SombreroGalaxy({
       }
       t = frozen ? 0 : now / 1000;
 
-      const goalX = p.parallax ? pointerX : 0;
-      const goalY = p.parallax ? pointerY : 0;
-      px += (goalX - px) * Math.min(1, dt * 1.8);
-      py += (goalY - py) * Math.min(1, dt * 1.8);
-
-      cx = w * p.centerX + px;
-      cy = h * p.centerY + py + (frozen ? 0 : Math.sin(t * 0.09) * 8);
+      // Locked to the anchor: the galaxy's nucleus must sit exactly where the
+      // clock's pivot sits, so there is no drift and no parallax offset here.
+      cx = w * p.centerX;
+      cy = h * p.centerY;
       R = Math.min(w * 0.47, h * 0.62);
       // the photographed galaxy spans wider than the drawn one — follow it
       diskR = photoReady ? photoWidth(w, h) * 0.39 : R;
@@ -580,16 +573,8 @@ export default function SombreroGalaxy({
       raf = requestAnimationFrame(tick);
     }
 
-    function onPointerMove(e: PointerEvent) {
-      const nx = e.clientX / Math.max(1, w) - 0.5;
-      const ny = e.clientY / Math.max(1, h) - 0.5;
-      pointerX = nx * 26;
-      pointerY = ny * 16;
-    }
-
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
-    window.addEventListener("pointermove", onPointerMove, { passive: true });
     redrawRef.current = () => {
       needsDraw = true;
     };
@@ -600,7 +585,6 @@ export default function SombreroGalaxy({
     return () => {
       cancelAnimationFrame(raf);
       observer.disconnect();
-      window.removeEventListener("pointermove", onPointerMove);
       photo.removeEventListener("load", onPhotoLoad);
       photo.removeEventListener("error", onPhotoError);
       photo.src = "";
