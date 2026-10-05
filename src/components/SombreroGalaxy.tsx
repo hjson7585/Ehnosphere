@@ -108,7 +108,10 @@ export default function SombreroGalaxy({
     const reducedMotion =
       typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Full native pixels up to 3× — on a phone the mosaic and the star field
+    // are painted at the panel's real resolution instead of being stretched
+    // by the compositor, which is what kept the background looking soft.
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
     const rand = Math.random;
 
     const sprites = TONES.map(makeSprite);
