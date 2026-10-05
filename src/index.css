@@ -174,22 +174,6 @@ html {
   );
 }
 
-/* ── dreamy clock motion ─────────────────────────────── */
-@keyframes ac-glow {
-  from {
-    opacity: 0.4;
-  }
-  to {
-    opacity: 0.85;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  [data-dreamy] * {
-    animation: none !important;
-  }
-}
-
 ::selection {
   background: color-mix(in oklab, var(--primary) 40%, transparent);
   color: var(--foreground);

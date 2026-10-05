@@ -148,7 +148,7 @@ export default function SombreroGalaxy({
 
     /** Width that lets the photograph run past every edge of the window. */
     const photoWidth = (width: number, height: number) =>
-      Math.max(width * 1.2, Math.min(width * 0.47, height * 0.62) * 2.6);
+      Math.max(width * 1.1, Math.min(width * 0.47, height * 0.62) * 2.25);
 
     /**
      * Pre-render the mosaic at device resolution with every edge faded to
@@ -174,19 +174,26 @@ export default function SombreroGalaxy({
       g2.imageSmoothingQuality = "high";
       g2.drawImage(photo, 0, 0, cw, ch);
 
-      // elliptical alpha fade: opaque in the middle, exactly zero at the edge
+      // Mask on the galaxy itself: an ellipse with a wide, smooth falloff that
+      // reaches zero before any edge of the frame — no rectangle, no hard rim,
+      // the brim simply dissolves into the surrounding sky.
+      const gx = 0.549 * cw;
+      const gy = 0.4795 * ch;
+      const sx = 0.44 * cw;
+      const sy = 0.43 * ch;
       g2.globalCompositeOperation = "destination-in";
       g2.save();
-      g2.translate(cw / 2, ch / 2);
-      g2.scale(1, ch / cw);
-      const r = cw / 2;
-      const fade = g2.createRadialGradient(0, 0, 0, 0, 0, r);
+      g2.translate(gx, gy);
+      g2.scale(sx, sy);
+      const fade = g2.createRadialGradient(0, 0, 0, 0, 0, 1);
       fade.addColorStop(0, "rgba(0,0,0,1)");
-      fade.addColorStop(0.86, "rgba(0,0,0,1)");
-      fade.addColorStop(0.95, "rgba(0,0,0,0.45)");
+      fade.addColorStop(0.74, "rgba(0,0,0,1)");
+      fade.addColorStop(0.86, "rgba(0,0,0,0.72)");
+      fade.addColorStop(0.94, "rgba(0,0,0,0.38)");
       fade.addColorStop(1, "rgba(0,0,0,0)");
       g2.fillStyle = fade;
-      g2.fillRect(-r, -r, r * 2, r * 2);
+      // paint the whole frame in gradient space, so every pixel is masked
+      g2.fillRect(-gx / sx, -gy / sy, cw / sx, ch / sy);
       g2.restore();
       photoLayer = c;
     }
@@ -368,20 +375,21 @@ export default function SombreroGalaxy({
       if (!iw || !ih) return;
       const dw = photoWidth(w, h);
       const dh = (ih / iw) * dw;
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      ctx.globalAlpha = Math.min(1, 0.84 * g);
-      // nudge the frame so the galaxy's own centre sits under the clock
       const x0 = cx - 0.549 * dw;
       const y0 = cy - 0.4795 * dh;
+      ctx.save();
+      // painted straight on — photographic tonality, no additive blow-out
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
       ctx.drawImage(photoLayer, x0, y0, dw, dh);
       ctx.restore();
     }
 
     /**
-     * A soft light travelling around the brim. Clipped to the disk and swept
-     * by the same angle as the stars, it makes the galaxy read as turning
-     * even though the photograph itself never moves.
+     * A soft light travelling around the brim. Drawn as an elliptical
+     * gradient that fades to nothing on its own — no clip, so it can never
+     * leave a straight edge across the disk — it sweeps with the same angle
+     * as the stars and makes the galaxy read as turning.
      */
     function drawSheen() {
       const rx = photoReady ? photoWidth(w, h) * 0.4 : R * 1.05;
@@ -389,17 +397,16 @@ export default function SombreroGalaxy({
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = 1;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU);
-      ctx.clip();
-      const sx = cx + Math.cos(rot) * rx * 0.62;
-      const sy = cy + Math.sin(rot) * ry * 0.62;
-      const grd = ctx.createRadialGradient(sx, sy, 0, sx, sy, rx * 0.85);
-      grd.addColorStop(0, `rgba(255, 238, 208, ${a16(0.12 * g)})`);
-      grd.addColorStop(0.5, `rgba(255, 208, 156, ${a16(0.05 * g)})`);
+      ctx.translate(cx, cy);
+      ctx.scale(rx, ry);
+      const ux = Math.cos(rot) * 0.62;
+      const uy = Math.sin(rot) * 0.62;
+      const grd = ctx.createRadialGradient(ux, uy, 0, ux, uy, 0.5);
+      grd.addColorStop(0, `rgba(255, 238, 208, ${a16(0.08 * g)})`);
+      grd.addColorStop(0.5, `rgba(255, 208, 156, ${a16(0.035 * g)})`);
       grd.addColorStop(1, "rgba(255, 190, 140, 0)");
       ctx.fillStyle = grd;
-      ctx.fillRect(cx - rx * 1.1, cy - ry * 1.4, rx * 2.2, ry * 2.8);
+      ctx.fillRect(-1.2, -1.2, 2.4, 2.4);
       ctx.restore();
     }
 
@@ -526,23 +533,24 @@ export default function SombreroGalaxy({
       const pulse = frozen ? 1 : 1 + 0.09 * Math.sin(t * 0.42) + 0.035 * Math.sin(t * 1.05 + 2.4);
       g = Math.max(0, p.glow * pulse);
       pScale = Math.max(0.7, Math.min(1.7, R / 560));
-      starAlpha = photoReady ? 0.45 : 1;
-      dustAlpha = photoReady ? 0.7 : 1;
+      starAlpha = photoReady ? 0.3 : 1;
+      dustAlpha = photoReady ? 0.55 : 1;
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
       if (bg) ctx.drawImage(bg, 0, 0, w, h);
 
-      drawHalo();
       if (photoReady) {
         drawPhoto(); // real Hubble M104, held still
+        drawHalo(); // warm bloom breathing over the photograph
         drawSheen(); // travelling light — the slow rotation
         drawDisk(false); // stars revolving through the brim
         drawDust(false);
         drawDisk(true);
         drawDust(true);
       } else {
+        drawHalo();
         drawDiskBody();
         drawDisk(false); // far half of the brim
         drawDust(false); // far dust lane, behind the bulge
