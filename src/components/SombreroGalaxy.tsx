@@ -5,12 +5,13 @@ import sombreroPhoto from "@/assets/sombrero-galaxy.jpg";
  * SombreroGalaxy — the real Hubble portrait of M104 as a living backdrop.
  *
  * The galaxy itself is the Hubble Space Telescope mosaic (NASA/ESA, 2003),
- * drawn additively so its black sky stays transparent over our starfield,
- * turning slowly around the galactic core and breathing in brightness.
- * If the photo ever fails to load, it falls back to a procedurally drawn
- * disk — ~1k additive particles, a luminous bulge and a dark dust lane.
- * Every moving part reads the same rotation angle, so a page can change
- * speed / glow / density live without restarting the animation.
+ * drawn additively so its black sky stays transparent over our starfield.
+ * The photograph never spins: instead the material inside it turns — stars
+ * and dust revolve through the brim while a soft light travels around the
+ * disk, and the whole thing breathes in brightness. If the photo ever fails
+ * to load, it falls back to a fully drawn disk — particles, luminous bulge
+ * and dark dust lane. Every moving part reads the same rotation angle, so a
+ * page can change speed / glow / density live without restarting anything.
  *
  * Respects `prefers-reduced-motion`: the scene renders once and freezes.
  */
@@ -135,6 +136,9 @@ export default function SombreroGalaxy({
     let t = 0;
     let g = 1;
     let pScale = 1;
+    /** how strongly the revolving material reads over the photograph */
+    let starAlpha = 1;
+    let dustAlpha = 1;
 
     const a16 = (v: number) => Math.min(1, Math.max(0, v)).toFixed(3);
 
@@ -304,7 +308,7 @@ export default function SombreroGalaxy({
       ctx.restore();
     }
 
-    /** The Hubble mosaic, spinning slowly around the galactic core. */
+    /** The Hubble mosaic — held still; only the material inside it turns. */
     function drawPhoto() {
       const iw = photo.naturalWidth;
       const ih = photo.naturalHeight;
@@ -314,10 +318,34 @@ export default function SombreroGalaxy({
       ctx.save();
       // additive: the photo's black sky adds nothing, so no rectangle shows
       ctx.globalCompositeOperation = "lighter";
-      ctx.globalAlpha = Math.min(1, 0.82 * g);
+      ctx.globalAlpha = Math.min(1, 0.84 * g);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       ctx.translate(cx, cy);
-      ctx.rotate(rot);
       ctx.drawImage(photo, -dw * 0.5, -dh * 0.5, dw, dh);
+      ctx.restore();
+    }
+
+    /**
+     * A soft light travelling around the brim. Clipped to the disk and swept
+     * by the same angle as the stars, it makes the galaxy read as turning
+     * even though the photograph itself never moves.
+     */
+    function drawSheen() {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, R * 1.05, R * 0.24, 0, 0, TAU);
+      ctx.clip();
+      const sx = cx + Math.cos(rot) * R * 0.58;
+      const sy = cy + Math.sin(rot) * R * 0.14;
+      const grd = ctx.createRadialGradient(sx, sy, 0, sx, sy, R * 0.8);
+      grd.addColorStop(0, `rgba(255, 238, 208, ${a16(0.12 * g)})`);
+      grd.addColorStop(0.5, `rgba(255, 208, 156, ${a16(0.05 * g)})`);
+      grd.addColorStop(1, "rgba(255, 190, 140, 0)");
+      ctx.fillStyle = grd;
+      ctx.fillRect(cx - R * 1.1, cy - R * 0.3, R * 2.2, R * 0.6);
       ctx.restore();
     }
 
@@ -346,7 +374,8 @@ export default function SombreroGalaxy({
           const x = cx + Math.cos(a) * pt.rn * R;
           const y = cy + s * pt.rn * R * COS_I;
           const tw = 0.8 + 0.2 * Math.sin(t * 1.7 + pt.phase);
-          const alpha = pt.bright * tw * 0.85 * (0.45 + 0.55 * Math.min(g, 1.6));
+          const alpha =
+            pt.bright * tw * 0.85 * (0.45 + 0.55 * Math.min(g, 1.6)) * starAlpha;
           if (alpha < 0.02) continue;
           const size = pt.size * pScale * 4.2;
           ctx.globalAlpha = Math.min(1, alpha);
@@ -366,7 +395,7 @@ export default function SombreroGalaxy({
         const y = cy + s * pt.rn * R * COS_I;
         const wob = 0.75 + 0.25 * Math.sin(t * 0.5 + pt.phase);
         const size = pt.size * pScale;
-        ctx.globalAlpha = Math.min(0.7, pt.alpha * wob);
+        ctx.globalAlpha = Math.min(0.7, pt.alpha * wob) * dustAlpha;
         ctx.drawImage(dustSprite, x - size * 0.5, y - size * 0.5, size, size);
       }
     }
@@ -441,6 +470,8 @@ export default function SombreroGalaxy({
       const pulse = frozen ? 1 : 1 + 0.09 * Math.sin(t * 0.42) + 0.035 * Math.sin(t * 1.05 + 2.4);
       g = Math.max(0, p.glow * pulse);
       pScale = Math.max(0.7, Math.min(1.7, R / 560));
+      starAlpha = photoReady ? 0.45 : 1;
+      dustAlpha = photoReady ? 0.7 : 1;
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.globalCompositeOperation = "source-over";
@@ -449,7 +480,12 @@ export default function SombreroGalaxy({
 
       drawHalo();
       if (photoReady) {
-        drawPhoto(); // real Hubble M104
+        drawPhoto(); // real Hubble M104, held still
+        drawSheen(); // travelling light — the slow rotation
+        drawDisk(false); // stars revolving through the brim
+        drawDust(false);
+        drawDisk(true);
+        drawDust(true);
       } else {
         drawDiskBody();
         drawDisk(false); // far half of the brim

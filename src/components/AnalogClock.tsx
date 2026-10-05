@@ -10,9 +10,10 @@ function polar(r: number, deg: number) {
 }
 
 /**
- * A quiet, serious timepiece: smoked-glass face so the galaxy reads through it,
- * brushed-brass indices, tapered starlight hands and a continuously sweeping
- * seconds needle. No numerals, no labels — the dial is read by marker alone.
+ * A dreamy timepiece rather than a strict instrument: frosted glass over the
+ * galaxy, an aurora bloom behind it, a dashed orbit ring that drifts around
+ * the dial, markers that glow instead of engrave, and hands made of light.
+ * Still no numerals — the hours are read by marker alone.
  */
 export default function AnalogClock({ className = "" }: { className?: string }) {
   const hourRef = useRef<HTMLDivElement>(null);
@@ -56,103 +57,136 @@ export default function AnalogClock({ className = "" }: { className?: string }) 
   }, []);
 
   return (
-    <div className={`relative aspect-square w-[min(84vmin,32rem)] ${className}`}>
-      {/* warm halo, as if the dial caught the galactic core */}
-      <div className="pointer-events-none absolute -inset-[7%] rounded-full bg-[radial-gradient(circle,rgba(255,196,126,0.12),transparent_66%)]" />
+    <div
+      data-dreamy
+      className={`relative aspect-square w-[min(84vmin,32rem)] ${className}`}
+    >
+      {/* aurora bloom breathing behind the glass */}
+      <div className="pointer-events-none absolute -inset-[15%] rounded-full bg-[conic-gradient(from_0deg,rgba(255,196,126,0.24),rgba(126,206,255,0.17)_28%,rgba(255,196,126,0.05)_52%,rgba(150,230,255,0.2)_78%,rgba(255,196,126,0.24))] opacity-70 blur-3xl [animation:ac-spin_54s_linear_infinite]" />
 
-      {/* smoked-glass face — thin on purpose, so the galaxy reads straight through it */}
-      <div className="absolute inset-0 rounded-full border border-[rgba(255,214,160,0.26)] bg-[radial-gradient(circle_at_32%_26%,rgba(8,12,24,0.18),rgba(3,5,11,0.4))] shadow-[0_50px_140px_-60px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.14)] backdrop-blur-[2px]" />
+      {/* frosted face — thin enough for the galaxy to read through */}
+      <div className="absolute inset-0 rounded-full border border-white/10 bg-[radial-gradient(circle_at_30%_24%,rgba(10,16,34,0.2),rgba(4,6,14,0.44))] shadow-[0_0_100px_-24px_rgba(150,205,255,0.3),inset_0_0_60px_rgba(255,255,255,0.05)] backdrop-blur-[5px]" />
 
-      {/* dial: minute track + brushed indices */}
+      {/* slow mist drifting inside the glass */}
+      <div className="pointer-events-none absolute inset-[7%] rounded-full bg-[radial-gradient(circle_at_40%_35%,rgba(120,190,255,0.16),transparent_62%)] blur-2xl [animation:ac-drift_26s_ease-in-out_infinite]" />
+
+      {/* dial */}
       <svg
         viewBox="0 0 400 400"
         className="absolute inset-0 h-full w-full"
-        style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.6))" }}
         aria-hidden="true"
       >
         <defs>
-          <linearGradient id="ac-brass" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#fbeacb" />
-            <stop offset="55%" stopColor="#e2b877" />
-            <stop offset="100%" stopColor="#b98442" />
+          <linearGradient id="ac-orbit" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#ffd9a0" stopOpacity="0.8" />
+            <stop offset="38%" stopColor="#9fd8ff" stopOpacity="0.42" />
+            <stop offset="72%" stopColor="#ffe9c9" stopOpacity="0.16" />
+            <stop offset="100%" stopColor="#8fe6ff" stopOpacity="0.6" />
           </linearGradient>
         </defs>
+
+        {/* dashed orbit ring, drifting around the dial */}
+        <g
+          style={{
+            transformBox: "view-box",
+            transformOrigin: "200px 200px",
+            animation: "ac-spin 120s linear infinite",
+          }}
+        >
+          <circle
+            cx="200"
+            cy="200"
+            r="178"
+            fill="none"
+            stroke="url(#ac-orbit)"
+            strokeWidth="1.3"
+            strokeDasharray="1 13"
+            strokeLinecap="round"
+          />
+        </g>
 
         <circle
           cx="200"
           cy="200"
-          r="192"
+          r="150"
           fill="none"
-          stroke="rgba(255,214,160,0.16)"
+          stroke="rgba(255,232,200,0.13)"
           strokeWidth="1"
         />
 
-        {TICKS.map((i) => {
-          const deg = i * 6;
-          if (i % 5 === 0) {
-            const a = polar(146, deg);
-            const b = polar(172, deg);
+        {/* minute hairlines */}
+        <g stroke="rgba(214,232,255,0.2)" strokeWidth="1.5" strokeLinecap="round">
+          {TICKS.filter((i) => i % 5 !== 0).map((i) => {
+            const deg = i * 6;
+            const a = polar(176, deg);
+            const b = polar(187, deg);
+            return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} />;
+          })}
+        </g>
+
+        {/* glowing hour markers instead of engraved batons */}
+        <g style={{ filter: "drop-shadow(0 0 7px rgba(255,214,160,0.85))" }}>
+          {TICKS.filter((i) => i % 5 === 0).map((i) => {
+            const deg = i * 6;
+            const p = polar(164, deg);
+            const quarter = i % 15 === 0;
             return (
-              <line
+              <circle
                 key={i}
-                x1={a.x}
-                y1={a.y}
-                x2={b.x}
-                y2={b.y}
-                stroke="url(#ac-brass)"
-                strokeWidth="5"
-                strokeLinecap="round"
+                cx={p.x}
+                cy={p.y}
+                r={quarter ? 5.2 : 3.4}
+                fill={quarter ? "#fff3dd" : "#e9f3ff"}
+                opacity={quarter ? 0.95 : 0.78}
               />
             );
-          }
-          const a = polar(177, deg);
-          const b = polar(187, deg);
-          return (
-            <line
-              key={i}
-              x1={a.x}
-              y1={a.y}
-              x2={b.x}
-              y2={b.y}
-              stroke="rgba(244,236,220,0.24)"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-            />
-          );
-        })}
+          })}
+        </g>
       </svg>
 
-      {/* hour hand */}
+      {/* orbiting motes */}
+      <div className="pointer-events-none absolute inset-0 [animation:ac-spin_44s_linear_infinite]">
+        <span className="absolute top-[4%] left-1/2 size-[1.6%] -translate-x-1/2 rounded-full bg-[#ffe9c9] shadow-[0_0_16px_rgba(255,214,160,0.95)]" />
+      </div>
+      <div className="pointer-events-none absolute inset-[10%] [animation:ac-spin_70s_linear_infinite_reverse]">
+        <span className="absolute top-0 left-1/2 size-[1.2%] -translate-x-1/2 rounded-full bg-[#cbeeff] shadow-[0_0_16px_rgba(150,220,255,0.95)]" />
+      </div>
+
+      {/* hour hand — a beam of warm light */}
       <div
         ref={hourRef}
         className="absolute inset-0 will-change-transform"
         style={{ transform: "rotate(0deg)" }}
       >
-        <div className="absolute top-1/2 left-1/2 h-[22%] w-[2.6%] -translate-x-1/2 -translate-y-full rounded-full bg-[linear-gradient(180deg,#fff7e9_0%,#f0d7a9_60%,#c99d5f_100%)] shadow-[0_0_16px_rgba(255,214,160,0.45),0_1px_10px_rgba(0,0,0,0.6)]" />
+        <div className="absolute top-1/2 left-1/2 h-[23%] w-[7%] -translate-x-1/2 -translate-y-full rounded-full bg-[rgba(255,214,160,0.55)] opacity-60 blur-[12px]" />
+        <div className="absolute top-1/2 left-1/2 h-[23%] w-[2.8%] -translate-x-1/2 -translate-y-full rounded-full bg-[linear-gradient(180deg,rgba(255,247,233,0.4),#fff6e6_30%,#e9c893_100%)] shadow-[0_0_22px_rgba(255,226,180,0.7),0_2px_14px_rgba(0,0,0,0.55)]" />
       </div>
 
-      {/* minute hand */}
+      {/* minute hand — cooler, longer light */}
       <div
         ref={minuteRef}
         className="absolute inset-0 will-change-transform"
         style={{ transform: "rotate(0deg)" }}
       >
-        <div className="absolute top-1/2 left-1/2 h-[32%] w-[1.7%] -translate-x-1/2 -translate-y-full rounded-full bg-[linear-gradient(180deg,#fffaef_0%,#f3ddb6_60%,#d2a765_100%)] shadow-[0_0_18px_rgba(255,222,178,0.45),0_1px_10px_rgba(0,0,0,0.6)]" />
+        <div className="absolute top-1/2 left-1/2 h-[32%] w-[5.5%] -translate-x-1/2 -translate-y-full rounded-full bg-[rgba(168,222,255,0.5)] opacity-60 blur-[12px]" />
+        <div className="absolute top-1/2 left-1/2 h-[32%] w-[1.8%] -translate-x-1/2 -translate-y-full rounded-full bg-[linear-gradient(180deg,rgba(244,251,255,0.4),#f6fbff_30%,#cfe4f7_100%)] shadow-[0_0_22px_rgba(168,222,255,0.6),0_2px_14px_rgba(0,0,0,0.55)]" />
       </div>
 
-      {/* sweeping seconds needle + counterweight */}
+      {/* sweeping seconds — an amber thread with a light at its tip */}
       <div
         ref={secondRef}
         className="absolute inset-0 will-change-transform"
         style={{ transform: "rotate(0deg)" }}
       >
-        <div className="absolute top-1/2 left-1/2 h-[35%] w-[0.5%] -translate-x-1/2 -translate-y-full rounded-full bg-[linear-gradient(180deg,#f0b877,#c07f3c)] shadow-[0_0_12px_rgba(240,176,110,0.5),0_1px_8px_rgba(0,0,0,0.55)]" />
-        <div className="absolute top-1/2 left-1/2 h-[9%] w-[2.6%] -translate-x-1/2 rounded-full bg-[#d99a52]" />
+        <div className="absolute top-1/2 left-1/2 h-[36%] w-[4%] -translate-x-1/2 -translate-y-full rounded-full bg-[rgba(255,196,126,0.45)] opacity-60 blur-[10px]" />
+        <div className="absolute top-1/2 left-1/2 h-[36%] w-[0.6%] -translate-x-1/2 -translate-y-full rounded-full bg-[linear-gradient(180deg,#ffe7c4,#d78f45)] shadow-[0_0_14px_rgba(255,196,126,0.7),0_1px_8px_rgba(0,0,0,0.5)]" />
+        <div className="absolute top-1/2 left-1/2 h-[9%] w-[2.8%] -translate-x-1/2 rounded-full bg-[#e0a25e] shadow-[0_0_12px_rgba(255,196,126,0.6)]" />
+        <span className="absolute top-[14%] left-1/2 size-[2.6%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.95),rgba(255,214,160,0.55)_45%,transparent_72%)]" />
       </div>
 
-      {/* centre cap */}
-      <div className="absolute top-1/2 left-1/2 size-[3.2%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f4dcb0] shadow-[0_0_14px_rgba(255,214,160,0.85)] ring-[1.5px] ring-[#8a6231]" />
-      <div className="absolute top-1/2 left-1/2 size-[1.2%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#0a0f1c]" />
+      {/* centre bloom */}
+      <div className="pointer-events-none absolute top-1/2 left-1/2 size-[11%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.85),rgba(255,226,180,0.4)_42%,transparent_72%)] blur-[2px]" />
+      <div className="pointer-events-none absolute top-1/2 left-1/2 size-[2.2%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_18px_rgba(255,255,255,0.9)]" />
     </div>
   );
 }
