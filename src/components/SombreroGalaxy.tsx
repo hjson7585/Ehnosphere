@@ -133,6 +133,10 @@ export default function SombreroGalaxy({
     let cx = 0;
     let cy = 0;
     let R = 1;
+    /** radius of the revolving material — follows the photograph when it is up */
+    let diskR = 1;
+    /** pre-rendered mosaic with feathered edges, null until the photo is ready */
+    let photoLayer: HTMLCanvasElement | null = null;
     let t = 0;
     let g = 1;
     let pScale = 1;
@@ -142,15 +146,62 @@ export default function SombreroGalaxy({
 
     const a16 = (v: number) => Math.min(1, Math.max(0, v)).toFixed(3);
 
+    /** Width that lets the photograph run past every edge of the window. */
+    const photoWidth = (width: number, height: number) =>
+      Math.max(width * 1.2, Math.min(width * 0.47, height * 0.62) * 2.6);
+
+    /**
+     * Pre-render the mosaic at device resolution with every edge faded to
+     * zero alpha. Drawn that way, no rectangle can ever show up against the
+     * sky — the photograph simply dissolves into the surrounding stars.
+     */
+    function buildPhotoLayer() {
+      photoLayer = null;
+      if (!photoReady) return;
+      const iw = photo.naturalWidth;
+      const ih = photo.naturalHeight;
+      if (!iw || !ih) return;
+      const dw = photoWidth(w, h);
+      const dh = (ih / iw) * dw;
+      const cw = Math.max(1, Math.round(dw * dpr));
+      const ch = Math.max(1, Math.round(dh * dpr));
+      const c = document.createElement("canvas");
+      c.width = cw;
+      c.height = ch;
+      const g2 = c.getContext("2d");
+      if (!g2) return;
+      g2.imageSmoothingEnabled = true;
+      g2.imageSmoothingQuality = "high";
+      g2.drawImage(photo, 0, 0, cw, ch);
+
+      // elliptical alpha fade: opaque in the middle, exactly zero at the edge
+      g2.globalCompositeOperation = "destination-in";
+      g2.save();
+      g2.translate(cw / 2, ch / 2);
+      g2.scale(1, ch / cw);
+      const r = cw / 2;
+      const fade = g2.createRadialGradient(0, 0, 0, 0, 0, r);
+      fade.addColorStop(0, "rgba(0,0,0,1)");
+      fade.addColorStop(0.86, "rgba(0,0,0,1)");
+      fade.addColorStop(0.95, "rgba(0,0,0,0.45)");
+      fade.addColorStop(1, "rgba(0,0,0,0)");
+      g2.fillStyle = fade;
+      g2.fillRect(-r, -r, r * 2, r * 2);
+      g2.restore();
+      photoLayer = c;
+    }
+
     // Real M104 portrait; the drawn disk stays as the fallback.
     const photo = new Image();
     let photoReady = false;
     const onPhotoLoad = () => {
       photoReady = true;
+      buildPhotoLayer();
       needsDraw = true;
     };
     const onPhotoError = () => {
       photoReady = false;
+      photoLayer = null;
       needsDraw = true;
     };
     photo.addEventListener("load", onPhotoLoad);
@@ -280,16 +331,17 @@ export default function SombreroGalaxy({
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
       buildBackground();
+      if (photoReady) buildPhotoLayer();
       vignette = ctx.createRadialGradient(
         w / 2,
         h / 2,
-        Math.min(w, h) * 0.32,
+        Math.min(w, h) * 0.45,
         w / 2,
         h / 2,
-        Math.max(w, h) * 0.8,
+        Math.max(w, h) * 0.95,
       );
       vignette.addColorStop(0, "rgba(2, 3, 8, 0)");
-      vignette.addColorStop(1, "rgba(1, 2, 6, 0.72)");
+      vignette.addColorStop(1, "rgba(1, 2, 6, 0.55)");
       needsDraw = true;
     }
 
@@ -310,19 +362,19 @@ export default function SombreroGalaxy({
 
     /** The Hubble mosaic — held still; only the material inside it turns. */
     function drawPhoto() {
+      if (!photoLayer) return;
       const iw = photo.naturalWidth;
       const ih = photo.naturalHeight;
       if (!iw || !ih) return;
-      const dw = R * 2.2;
+      const dw = photoWidth(w, h);
       const dh = (ih / iw) * dw;
       ctx.save();
-      // additive: the photo's black sky adds nothing, so no rectangle shows
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = Math.min(1, 0.84 * g);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      ctx.translate(cx, cy);
-      ctx.drawImage(photo, -dw * 0.5, -dh * 0.5, dw, dh);
+      // nudge the frame so the galaxy's own centre sits under the clock
+      const x0 = cx - 0.549 * dw;
+      const y0 = cy - 0.4795 * dh;
+      ctx.drawImage(photoLayer, x0, y0, dw, dh);
       ctx.restore();
     }
 
@@ -332,20 +384,22 @@ export default function SombreroGalaxy({
      * even though the photograph itself never moves.
      */
     function drawSheen() {
+      const rx = photoReady ? photoWidth(w, h) * 0.4 : R * 1.05;
+      const ry = photoReady ? photoWidth(w, h) * 0.1 : R * 0.24;
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = 1;
       ctx.beginPath();
-      ctx.ellipse(cx, cy, R * 1.05, R * 0.24, 0, 0, TAU);
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU);
       ctx.clip();
-      const sx = cx + Math.cos(rot) * R * 0.58;
-      const sy = cy + Math.sin(rot) * R * 0.14;
-      const grd = ctx.createRadialGradient(sx, sy, 0, sx, sy, R * 0.8);
+      const sx = cx + Math.cos(rot) * rx * 0.62;
+      const sy = cy + Math.sin(rot) * ry * 0.62;
+      const grd = ctx.createRadialGradient(sx, sy, 0, sx, sy, rx * 0.85);
       grd.addColorStop(0, `rgba(255, 238, 208, ${a16(0.12 * g)})`);
       grd.addColorStop(0.5, `rgba(255, 208, 156, ${a16(0.05 * g)})`);
       grd.addColorStop(1, "rgba(255, 190, 140, 0)");
       ctx.fillStyle = grd;
-      ctx.fillRect(cx - R * 1.1, cy - R * 0.3, R * 2.2, R * 0.6);
+      ctx.fillRect(cx - rx * 1.1, cy - ry * 1.4, rx * 2.2, ry * 2.8);
       ctx.restore();
     }
 
@@ -371,8 +425,8 @@ export default function SombreroGalaxy({
           const a = pt.a + rot;
           const s = Math.sin(a);
           if (near ? s <= 0 : s > 0) continue;
-          const x = cx + Math.cos(a) * pt.rn * R;
-          const y = cy + s * pt.rn * R * COS_I;
+          const x = cx + Math.cos(a) * pt.rn * diskR;
+          const y = cy + s * pt.rn * diskR * COS_I;
           const tw = 0.8 + 0.2 * Math.sin(t * 1.7 + pt.phase);
           const alpha =
             pt.bright * tw * 0.85 * (0.45 + 0.55 * Math.min(g, 1.6)) * starAlpha;
@@ -391,8 +445,8 @@ export default function SombreroGalaxy({
         const a = pt.a + rot;
         const s = Math.sin(a);
         if (near ? s <= 0 : s > 0) continue;
-        const x = cx + Math.cos(a) * pt.rn * R;
-        const y = cy + s * pt.rn * R * COS_I;
+        const x = cx + Math.cos(a) * pt.rn * diskR;
+        const y = cy + s * pt.rn * diskR * COS_I;
         const wob = 0.75 + 0.25 * Math.sin(t * 0.5 + pt.phase);
         const size = pt.size * pScale;
         ctx.globalAlpha = Math.min(0.7, pt.alpha * wob) * dustAlpha;
@@ -467,6 +521,8 @@ export default function SombreroGalaxy({
       cx = w * p.centerX + px;
       cy = h * p.centerY + py + (frozen ? 0 : Math.sin(t * 0.09) * 8);
       R = Math.min(w * 0.47, h * 0.62);
+      // the photographed galaxy spans wider than the drawn one — follow it
+      diskR = photoReady ? photoWidth(w, h) * 0.39 : R;
       const pulse = frozen ? 1 : 1 + 0.09 * Math.sin(t * 0.42) + 0.035 * Math.sin(t * 1.05 + 2.4);
       g = Math.max(0, p.glow * pulse);
       pScale = Math.max(0.7, Math.min(1.7, R / 560));
@@ -540,6 +596,7 @@ export default function SombreroGalaxy({
       photo.removeEventListener("load", onPhotoLoad);
       photo.removeEventListener("error", onPhotoError);
       photo.src = "";
+      photoLayer = null;
       redrawRef.current = null;
     };
   }, []);

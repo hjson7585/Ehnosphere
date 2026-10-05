@@ -175,19 +175,12 @@ html {
 }
 
 /* ── dreamy clock motion ─────────────────────────────── */
-@keyframes ac-spin {
+@keyframes ac-glow {
+  from {
+    opacity: 0.4;
+  }
   to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes ac-drift {
-  0%,
-  100% {
-    transform: translate3d(-4%, -3%, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(4%, 3%, 0) scale(1.08);
+    opacity: 0.85;
   }
 }
 
