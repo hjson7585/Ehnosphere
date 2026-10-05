@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import sombreroPhoto from "@/assets/sombrero-galaxy.jpg";
+import sombreroPhotoStd from "@/assets/sombrero-galaxy-3072.jpg";
 
 /**
  * SombreroGalaxy — the real Hubble portrait of M104 as a living backdrop.
@@ -98,6 +99,10 @@ export default function SombreroGalaxy({
     const maybeCtx = canvas.getContext("2d", { alpha: false });
     if (!maybeCtx) return;
     const ctx: CanvasRenderingContext2D = maybeCtx;
+    // every scaled blit (mosaic, glow sprites, halo) on the best filter —
+    // the default is the fast one, which dulls star points
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
 
     const reducedMotion =
       typeof window.matchMedia === "function" &&
@@ -129,6 +134,9 @@ export default function SombreroGalaxy({
     let diskR = 1;
     /** pre-rendered mosaic with feathered edges, null until the photo is ready */
     let photoLayer: HTMLCanvasElement | null = null;
+    /** aspect of the mosaic inside photoLayer — stays valid while a better
+     *  master is still downloading, so the photograph never blinks out */
+    let photoAspect = 0;
     let t = 0;
     let g = 1;
     let pScale = 1;
@@ -153,18 +161,47 @@ export default function SombreroGalaxy({
     const CORE = { x: 0.4978, y: 0.4966 };
 
     /**
+     * Paint the mosaic into a device-sized target, shrinking in ~2× steps.
+     * A browser's single-pass drawImage from 7680 px down to a screen-wide
+     * layer runs on a cheap filter: the star field aliases into sparkle and
+     * the dust lane shimmers. Halving keeps every resample close to 1:1, so
+     * the photograph reads print-grade instead of web-grade.
+     */
+    function paintPhoto(target: CanvasRenderingContext2D, cw: number, ch: number) {
+      let src: CanvasImageSource = photo;
+      let sw = photo.naturalWidth;
+      let sh = photo.naturalHeight;
+      while (sw > cw * 2 && sh > ch * 2) {
+        const nw = Math.max(cw, Math.floor(sw / 2));
+        const nh = Math.max(ch, Math.floor(sh / 2));
+        const step = document.createElement("canvas");
+        step.width = nw;
+        step.height = nh;
+        const sg = step.getContext("2d");
+        if (!sg) break;
+        sg.imageSmoothingEnabled = true;
+        sg.imageSmoothingQuality = "high";
+        sg.drawImage(src, 0, 0, nw, nh);
+        src = step;
+        sw = nw;
+        sh = nh;
+      }
+      target.drawImage(src, 0, 0, cw, ch);
+    }
+
+    /**
      * Pre-render the mosaic at device resolution with every edge faded to
      * zero alpha. Drawn that way, no rectangle can ever show up against the
      * sky — the photograph simply dissolves into the surrounding stars.
      */
     function buildPhotoLayer() {
-      photoLayer = null;
       if (!photoReady) return;
       const iw = photo.naturalWidth;
       const ih = photo.naturalHeight;
-      if (!iw || !ih) return;
+      if (!iw || !ih) return; // a master swap is in flight — keep the layer we have
       const dw = photoWidth(w, h);
       const dh = (ih / iw) * dw;
+      photoAspect = dh / dw;
       const cw = Math.max(1, Math.round(dw * dpr));
       const ch = Math.max(1, Math.round(dh * dpr));
       const c = document.createElement("canvas");
@@ -174,7 +211,7 @@ export default function SombreroGalaxy({
       if (!g2) return;
       g2.imageSmoothingEnabled = true;
       g2.imageSmoothingQuality = "high";
-      g2.drawImage(photo, 0, 0, cw, ch);
+      paintPhoto(g2, cw, ch);
 
       // Mask on the galaxy itself: an ellipse with a wide, smooth falloff that
       // reaches zero before any edge of the frame — no rectangle, no hard rim,
@@ -209,19 +246,47 @@ export default function SombreroGalaxy({
     // Real M104 portrait; the drawn disk stays as the fallback.
     const photo = new Image();
     let photoReady = false;
+    /**
+     * Two masters of the same Hubble mosaic: a 7680 px archive encode and a
+     * 3072 px everyday one (1.3 MB). We fetch whichever the panel can actually
+     * resolve — mosaic width × device pixel ratio — so a phone stays light and
+     * a big display gets the full art. The choice is revisited on resize, but
+     * once the archive master is on screen it is never traded back down.
+     */
+    const needsArchive = (width: number, height: number) =>
+      photoWidth(width, height) * dpr > 3072;
+    let photoSrc = "";
+    let archiveFailed = false;
+    const loadPhoto = () => {
+      const [vw, vh] =
+        w > 1 && h > 1 ? [w, h] : [window.innerWidth, window.innerHeight];
+      const next = needsArchive(vw, vh) && !archiveFailed ? sombreroPhoto : sombreroPhotoStd;
+      if (next === photoSrc) return;
+      if (photoSrc === sombreroPhoto) return;
+      photoSrc = next;
+      photo.src = next;
+    };
     const onPhotoLoad = () => {
       photoReady = true;
       buildPhotoLayer();
       needsDraw = true;
     };
     const onPhotoError = () => {
+      // the archive master can fail on a memory-tight device: fall back to the
+      // everyday encode, and only give up once that one is gone too
+      if (photoSrc === sombreroPhoto) {
+        archiveFailed = true;
+        photoSrc = sombreroPhotoStd;
+        photo.src = sombreroPhotoStd;
+        return;
+      }
       photoReady = false;
       photoLayer = null;
       needsDraw = true;
     };
     photo.addEventListener("load", onPhotoLoad);
     photo.addEventListener("error", onPhotoError);
-    photo.src = sombreroPhoto;
+    loadPhoto();
 
     function buildParticles(density: number) {
       const next: DiskParticle[][] = [[], [], [], []];
@@ -346,6 +411,7 @@ export default function SombreroGalaxy({
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
       buildBackground();
+      loadPhoto(); // upgrade-only: swaps in the archive master when the panel grows
       if (photoReady) buildPhotoLayer();
       vignette = ctx.createRadialGradient(
         w / 2,
@@ -377,12 +443,9 @@ export default function SombreroGalaxy({
 
     /** The Hubble mosaic — held still; only the material inside it turns. */
     function drawPhoto() {
-      if (!photoLayer) return;
-      const iw = photo.naturalWidth;
-      const ih = photo.naturalHeight;
-      if (!iw || !ih) return;
+      if (!photoLayer || !photoAspect) return;
       const dw = photoWidth(w, h);
-      const dh = (ih / iw) * dw;
+      const dh = photoAspect * dw;
       const x0 = cx - CORE.x * dw;
       const y0 = cy - CORE.y * dh;
       ctx.save();
