@@ -45,11 +45,12 @@ export const BASE_PERIOD = 200;
 /**
  * The haze out in the black sky rides the same wheel at NEBULA_SPIN of the
  * disk's rate — one circuit for every 1/NEBULA_SPIN revolutions of the stars.
- * At the default speed that is 0.27°/s, about 15 px of arc over ten seconds:
- * a drift you notice only once you look for it, which is the whole point of
- * asking for the nebulae to turn "just a little".
+ * At the default speed that is 571 s per circuit, 0.63°/s: about 4 px of arc
+ * per second along the cloud's path on a 1440-wide panel, 6 px on a
+ * 1920-wide one. Held below 0.5 so the haze stays the slowest of the three
+ * — inner things go faster, the way orbits do.
  */
-const NEBULA_SPIN = 0.15;
+const NEBULA_SPIN = 0.35;
 /**
  * The ring around the core — the light and shadow riding the dust lane —
  * has its own clock at RING_SPIN of the disk's rate. The plate underneath
@@ -63,7 +64,7 @@ const NEBULA_SPIN = 0.15;
  *
  * The three periods are deliberately nested with radius, the way real orbits
  * are: the disk turns fastest (200 s), then the ring (400 s), then the
- * outer haze (1333 s).
+ * outer haze (571 s).
  */
 const RING_SPIN = 0.5;
 /** Viewing inclination — nearly edge-on, like the Hubble portrait, so the
@@ -602,9 +603,10 @@ export default function SombreroGalaxy({
 
       ctx.globalCompositeOperation = "source-over";
 
-      // A faint cold breath, upper left — kept low so the sky stays clean and
-      // open rather than fogged over. This is the cloud that does the
-      // circling: its centre sits well clear of the nucleus.
+      // A cold breath in the upper left — the cloud that actually does the
+      // circling, its centre sitting well clear of the nucleus. Held opaque
+      // enough to track as it travels: any lower and it rotated without ever
+      // being seen, which reads as a sky that never moves.
       const [n1x, n1y] = orbit(0.26, 0.3);
       const n1 = ctx.createRadialGradient(
         n1x,
@@ -614,15 +616,15 @@ export default function SombreroGalaxy({
         n1y,
         Math.max(w, h) * 0.55,
       );
-      n1.addColorStop(0, "rgba(34, 72, 104, 0.13)");
-      n1.addColorStop(0.5, "rgba(22, 44, 72, 0.05)");
+      n1.addColorStop(0, "rgba(34, 72, 104, 0.26)");
+      n1.addColorStop(0.5, "rgba(22, 44, 72, 0.1)");
       n1.addColorStop(1, "rgba(8, 14, 28, 0)");
       ctx.fillStyle = n1;
       ctx.fillRect(0, 0, w, h);
 
-      // barely-there warmth along the galactic plane. On the landing page its
-      // centre coincides with the nucleus, so it sits on the axis of rotation
-      // and stays put; wherever the core is anchored elsewhere it drifts too.
+      // Faint warmth along the galactic plane. On the landing page its centre
+      // coincides with the nucleus, so it sits on the axis of rotation and
+      // stays put; wherever the core is anchored elsewhere it drifts too.
       const [n2x, n2y] = orbit(0.5, 0.5);
       const n2 = ctx.createRadialGradient(
         n2x,
@@ -632,7 +634,7 @@ export default function SombreroGalaxy({
         n2y,
         Math.max(w, h) * 0.5,
       );
-      n2.addColorStop(0, "rgba(122, 78, 38, 0.07)");
+      n2.addColorStop(0, "rgba(122, 78, 38, 0.15)");
       n2.addColorStop(1, "rgba(50, 28, 14, 0)");
       ctx.fillStyle = n2;
       ctx.fillRect(0, 0, w, h);
