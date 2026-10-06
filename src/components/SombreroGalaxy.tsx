@@ -8,12 +8,11 @@ import sombreroPhotoLight from "@/assets/sombrero-galaxy-2048.jpg";
  *
  * The galaxy itself is the Hubble Space Telescope mosaic (NASA/ESA, 2003),
  * drawn additively so its black sky stays transparent over our starfield.
- * The photograph turns about its own nucleus — the dark dust lane is the
- * ring around the core, and it revolves with the plate — while the material
- * inside turns too: stars and dust revolve through the brim, a soft light
- * travels the disk, light and shadow sweep the lane, the haze beyond the
- * brim circles the nucleus more slowly still, and the whole thing breathes
- * in brightness. If the photo ever fails
+ * The photograph itself never turns — only what orbits it does: stars and
+ * dust revolve through the brim, a soft light travels the disk, and the
+ * ring of light and shadow sweeps the dust lane around the core. The haze
+ * beyond the brim circles the nucleus more slowly still, and the whole
+ * thing breathes in brightness. If the photo ever fails
  * to load, it falls back to a fully drawn disk — particles, luminous bulge
  * and dark dust lane. Every moving part reads the same clock, so a page can
  * change speed / glow / density live without restarting anything.
@@ -52,15 +51,18 @@ export const BASE_PERIOD = 200;
  */
 const NEBULA_SPIN = 0.15;
 /**
- * The dust lane rides its own clock at RING_SPIN of the disk's rate, and
- * this one moves the plate itself: drawPhoto() turns the whole photograph
- * on its nucleus by this angle, carrying the light/shadow sweep with it.
+ * The ring around the core — the light and shadow riding the dust lane —
+ * has its own clock at RING_SPIN of the disk's rate. The plate underneath
+ * does not turn: only this travels, circling the nucleus while the
+ * photograph holds still.
  *
- * 400 s per circuit at the default speed — 0.9°/s, so the brim swings from
- * horizontal to vertical in about 100 s.
+ * 400 s per circuit at the default speed, 0.9°/s: about 3.8 px of arc per
+ * second along the lane on a 1280-wide panel, 5.7 px on a 1920-wide one
+ * (the ellipse is scaled from the photograph, so the linear speed follows
+ * the window; the angular speed does not).
  *
  * The three periods are deliberately nested with radius, the way real orbits
- * are: the disk turns fastest (200 s), then the lane (400 s), then the
+ * are: the disk turns fastest (200 s), then the ring (400 s), then the
  * outer haze (1333 s).
  */
 const RING_SPIN = 0.5;
@@ -194,7 +196,7 @@ export default function SombreroGalaxy({
     let rot = 0;
     /** the outer nebula's own angle — same clock as rot, NEBULA_SPIN as fast */
     let nebRot = 0;
-    /** the dust lane's own angle — turns the plate itself, RING_SPIN as fast */
+    /** the ring's angle around the core — same clock again, RING_SPIN as fast */
     let ringRot = 0;
     let last = performance.now();
     let raf = 0;
@@ -651,31 +653,28 @@ export default function SombreroGalaxy({
       ctx.restore();
     }
 
-    /** The Hubble mosaic, turned on its nucleus; the material inside turns too. */
+    /** The Hubble mosaic — held still; only what orbits it turns. */
     function drawPhoto() {
       if (!photoLayer || !photoAspect) return;
-      const dx = Math.round(cx * dpr - CORE.x * photoLayer.width);
-      const dy = Math.round(cy * dpr - CORE.y * photoLayer.height);
-      // the nucleus, in device pixels — the single point the plate turns on
-      const px = dx + CORE.x * photoLayer.width;
-      const py = dy + CORE.y * photoLayer.height;
       ctx.save();
-      // Raw device pixels on a whole-pixel origin, then turned about the
-      // nucleus. Because the pivot *is* the nucleus and `dx` is rounded
-      // around it, the core stays on the same device pixel at every angle —
-      // the invariant that the galaxy's heart sits on the clock's pivot
-      // survives the rotation untouched. At ringRot === 0 the transform
-      // collapses to identity and the blit is the exact 1:1 it always was;
-      // away from zero the sampling is no longer axis-aligned, so turning
-      // the plate costs a little of the sharpness the stepped downscale buys.
+      // Raw device pixels on a whole-pixel origin. The layer already *is*
+      // photoLayer.width x photoLayer.height device pixels, so the only way
+      // it can reach the screen untouched is laid down 1:1 — placing it at a
+      // fractional coordinate made the compositor resample a texture that
+      // was already exactly its own size, and that half-pixel wobble was
+      // itself a blur. Snapping around the nucleus rather than around the
+      // frame keeps CORE on the clock's pivot inside half a device pixel.
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.translate(px, py);
-      ctx.rotate(ringRot);
-      ctx.translate(-px, -py);
       // painted straight on — photographic tonality, no additive blow-out
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
-      ctx.drawImage(photoLayer, dx, dy, photoLayer.width, photoLayer.height);
+      ctx.drawImage(
+        photoLayer,
+        Math.round(cx * dpr - CORE.x * photoLayer.width),
+        Math.round(cy * dpr - CORE.y * photoLayer.height),
+        photoLayer.width,
+        photoLayer.height,
+      );
       ctx.restore();
     }
 
@@ -914,7 +913,7 @@ export default function SombreroGalaxy({
       drawNebula(); // the haze, a little way around from where it was
 
       if (photoReady) {
-        drawPhoto(); // real Hubble M104, turning on its nucleus
+        drawPhoto(); // real Hubble M104, held still
         drawHalo(); // warm bloom breathing over the photograph
         drawRingSweep(); // light and shadow travelling the dust lane
         drawSheen(); // travelling light — the slow rotation
