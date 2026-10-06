@@ -40,6 +40,13 @@ export const BASE_PERIOD = 300;
 const COS_I = Math.cos((78 * Math.PI) / 180);
 /** rgb triples: warm core, amber mid-disk, cool outer stars, white. */
 const TONES = ["255,244,226", "255,206,148", "198,216,255", "255,255,255"];
+/**
+ * How brightly the mosaic itself is printed — 1 is exactly as shot. A plain
+ * multiplier, so the black sky stays black, the midtones of the brim lift,
+ * and the nucleus simply clips to white, as it already does in the plate.
+ * Applied once while the photo layer is built, never per frame.
+ */
+const PHOTO_BRIGHTNESS = 1.2;
 
 type DiskParticle = {
   rn: number;
@@ -190,7 +197,10 @@ export default function SombreroGalaxy({
         sw = nw;
         sh = nh;
       }
+      target.save();
+      target.filter = `brightness(${PHOTO_BRIGHTNESS})`;
       target.drawImage(src, 0, 0, cw, ch);
+      target.restore();
     }
 
     /**
@@ -509,9 +519,9 @@ export default function SombreroGalaxy({
       const hr = photoReady ? photoWidth(w, h) * 0.52 : R * 1.35;
       ctx.globalCompositeOperation = "lighter";
       const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, hr);
-      halo.addColorStop(0, `rgba(255, 186, 116, ${a16(0.15 * g)})`);
-      halo.addColorStop(0.34, `rgba(233, 148, 86, ${a16(0.075 * g)})`);
-      halo.addColorStop(0.72, `rgba(140, 96, 62, ${a16(0.028 * g)})`);
+      halo.addColorStop(0, `rgba(255, 186, 116, ${a16(0.19 * g)})`);
+      halo.addColorStop(0.34, `rgba(233, 148, 86, ${a16(0.095 * g)})`);
+      halo.addColorStop(0.72, `rgba(140, 96, 62, ${a16(0.034 * g)})`);
       halo.addColorStop(1, "rgba(90, 70, 60, 0)");
       ctx.fillStyle = halo;
       ctx.fillRect(cx - hr * 1.05, cy - hr * 1.05, hr * 2.1, hr * 2.1);
