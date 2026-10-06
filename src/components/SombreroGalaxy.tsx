@@ -41,12 +41,15 @@ const COS_I = Math.cos((78 * Math.PI) / 180);
 /** rgb triples: warm core, amber mid-disk, cool outer stars, white. */
 const TONES = ["255,244,226", "255,206,148", "198,216,255", "255,255,255"];
 /**
- * How brightly the mosaic itself is printed — 1 is exactly as shot. A plain
- * multiplier, so the black sky stays black, the midtones of the brim lift,
- * and the nucleus simply clips to white, as it already does in the plate.
- * Applied once while the photo layer is built, never per frame.
+ * How the mosaic itself is printed. A plain brightness multiplier lifted the
+ * midtones but flattened them too — the brim lost its bite and the whole
+ * plate read as a milky haze. Lifting a little *and* stretching contrast
+ * keeps the black sky at true black while the lit dust lane snaps forward,
+ * so the photograph reads crisp instead of foggy; saturate puts the amber
+ * back after the contrast pull. Applied once while the photo layer is built,
+ * never per frame.
  */
-const PHOTO_BRIGHTNESS = 1.2;
+const PHOTO_FILTER = "brightness(1.15) contrast(1.12) saturate(1.06)";
 
 type DiskParticle = {
   rn: number;
@@ -62,7 +65,13 @@ type DustParticle = {
   alpha: number;
   phase: number;
 };
-type FieldStar = { x: number; y: number; size: number; alpha: number; phase: number };
+type FieldStar = {
+  x: number;
+  y: number;
+  size: number;
+  alpha: number;
+  phase: number;
+};
 
 /** Soft radial dot used for every particle, tinted by rgb triple. */
 function makeSprite(rgb: string): HTMLCanvasElement {
@@ -72,7 +81,14 @@ function makeSprite(rgb: string): HTMLCanvasElement {
   c.height = size;
   const g = c.getContext("2d");
   if (!g) return c;
-  const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  const grad = g.createRadialGradient(
+    size / 2,
+    size / 2,
+    0,
+    size / 2,
+    size / 2,
+    size / 2,
+  );
   grad.addColorStop(0, `rgba(${rgb},1)`);
   grad.addColorStop(0.2, `rgba(${rgb},0.7)`);
   grad.addColorStop(0.48, `rgba(${rgb},0.18)`);
@@ -178,7 +194,11 @@ export default function SombreroGalaxy({
      * the dust lane shimmers. Halving keeps every resample close to 1:1, so
      * the photograph reads print-grade instead of web-grade.
      */
-    function paintPhoto(target: CanvasRenderingContext2D, cw: number, ch: number) {
+    function paintPhoto(
+      target: CanvasRenderingContext2D,
+      cw: number,
+      ch: number,
+    ) {
       let src: CanvasImageSource = photo;
       let sw = photo.naturalWidth;
       let sh = photo.naturalHeight;
@@ -198,7 +218,7 @@ export default function SombreroGalaxy({
         sh = nh;
       }
       target.save();
-      target.filter = `brightness(${PHOTO_BRIGHTNESS})`;
+      target.filter = PHOTO_FILTER;
       target.drawImage(src, 0, 0, cw, ch);
       target.restore();
     }
@@ -335,7 +355,9 @@ export default function SombreroGalaxy({
         const lump = 0.5 + 0.5 * Math.sin(5 * a - outward * 3.4 + 2.2);
         const falloff = 0.18 + 0.82 * Math.pow(1 - outward, 0.9);
         const bright =
-          falloff * (0.55 + 0.45 * (0.68 * arm + 0.32 * lump)) * (0.6 + rand() * 0.7);
+          falloff *
+          (0.55 + 0.45 * (0.68 * arm + 0.32 * lump)) *
+          (0.6 + rand() * 0.7);
         const tt = rand();
         let tone: number;
         if (outward > 0.62) tone = tt < 0.6 ? 1 : tt < 0.92 ? 2 : 0;
@@ -393,7 +415,8 @@ export default function SombreroGalaxy({
       g2.fillStyle = base;
       g2.fillRect(0, 0, w, h);
 
-      // cold nebula haze, upper left
+      // A faint cold breath, upper left — kept low so the sky stays clean and
+      // open rather than fogged over.
       const n1 = g2.createRadialGradient(
         w * 0.26,
         h * 0.3,
@@ -402,13 +425,13 @@ export default function SombreroGalaxy({
         h * 0.3,
         Math.max(w, h) * 0.55,
       );
-      n1.addColorStop(0, "rgba(34, 72, 104, 0.30)");
-      n1.addColorStop(0.5, "rgba(22, 44, 72, 0.11)");
+      n1.addColorStop(0, "rgba(34, 72, 104, 0.13)");
+      n1.addColorStop(0.5, "rgba(22, 44, 72, 0.05)");
       n1.addColorStop(1, "rgba(8, 14, 28, 0)");
       g2.fillStyle = n1;
       g2.fillRect(0, 0, w, h);
 
-      // warm haze around the galactic plane
+      // barely-there warmth along the galactic plane
       const n2 = g2.createRadialGradient(
         w * 0.5,
         h * 0.5,
@@ -417,7 +440,7 @@ export default function SombreroGalaxy({
         h * 0.5,
         Math.max(w, h) * 0.5,
       );
-      n2.addColorStop(0, "rgba(122, 78, 38, 0.20)");
+      n2.addColorStop(0, "rgba(122, 78, 38, 0.07)");
       n2.addColorStop(1, "rgba(50, 28, 14, 0)");
       g2.fillStyle = n2;
       g2.fillRect(0, 0, w, h);
@@ -429,9 +452,17 @@ export default function SombreroGalaxy({
         const y = rand() * h;
         const a = 0.08 + rand() * 0.45;
         const warm = rand() < 0.3;
-        g2.fillStyle = warm ? `rgba(255, 224, 180, ${a})` : `rgba(206, 222, 255, ${a})`;
+        g2.fillStyle = warm
+          ? `rgba(255, 224, 180, ${a})`
+          : `rgba(206, 222, 255, ${a})`;
         g2.beginPath();
-        g2.arc(x, y, (rand() < 0.9 ? 0.5 : 0.85) * (0.7 + rand() * 0.7), 0, TAU);
+        g2.arc(
+          x,
+          y,
+          (rand() < 0.9 ? 0.5 : 0.85) * (0.7 + rand() * 0.7),
+          0,
+          TAU,
+        );
         g2.fill();
       }
       bg = c;
@@ -446,16 +477,18 @@ export default function SombreroGalaxy({
       buildBackground();
       loadPhoto(); // only trades upward: a sharper encode when the panel grows
       if (photoReady) buildPhotoLayer();
+      // Started later and much lighter: a heavy edge burn is what made the
+      // frame feel like it was closing in on the galaxy.
       vignette = ctx.createRadialGradient(
         w / 2,
         h / 2,
-        Math.min(w, h) * 0.45,
+        Math.min(w, h) * 0.54,
         w / 2,
         h / 2,
-        Math.max(w, h) * 0.95,
+        Math.max(w, h) * 0.98,
       );
       vignette.addColorStop(0, "rgba(2, 3, 8, 0)");
-      vignette.addColorStop(1, "rgba(1, 2, 6, 0.55)");
+      vignette.addColorStop(1, "rgba(1, 2, 6, 0.32)");
       needsDraw = true;
     }
 
@@ -519,9 +552,9 @@ export default function SombreroGalaxy({
       const hr = photoReady ? photoWidth(w, h) * 0.52 : R * 1.35;
       ctx.globalCompositeOperation = "lighter";
       const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, hr);
-      halo.addColorStop(0, `rgba(255, 186, 116, ${a16(0.19 * g)})`);
-      halo.addColorStop(0.34, `rgba(233, 148, 86, ${a16(0.095 * g)})`);
-      halo.addColorStop(0.72, `rgba(140, 96, 62, ${a16(0.034 * g)})`);
+      halo.addColorStop(0, `rgba(255, 186, 116, ${a16(0.13 * g)})`);
+      halo.addColorStop(0.34, `rgba(233, 148, 86, ${a16(0.06 * g)})`);
+      halo.addColorStop(0.72, `rgba(140, 96, 62, ${a16(0.02 * g)})`);
       halo.addColorStop(1, "rgba(90, 70, 60, 0)");
       ctx.fillStyle = halo;
       ctx.fillRect(cx - hr * 1.05, cy - hr * 1.05, hr * 2.1, hr * 2.1);
@@ -542,7 +575,11 @@ export default function SombreroGalaxy({
           const y = cy + s * pt.rn * diskR * COS_I;
           const tw = 0.8 + 0.2 * Math.sin(t * 1.7 + pt.phase);
           const alpha =
-            pt.bright * tw * 0.85 * (0.45 + 0.55 * Math.min(g, 1.6)) * starAlpha;
+            pt.bright *
+            tw *
+            0.85 *
+            (0.45 + 0.55 * Math.min(g, 1.6)) *
+            starAlpha;
           if (alpha < 0.02) continue;
           const size = pt.size * pScale * 4.2;
           ctx.globalAlpha = Math.min(1, alpha);
@@ -633,11 +670,16 @@ export default function SombreroGalaxy({
       R = Math.min(w * 0.47, h * 0.62);
       // the photographed galaxy spans wider than the drawn one — follow it
       diskR = photoReady ? photoWidth(w, h) * 0.39 : R;
-      const pulse = frozen ? 1 : 1 + 0.09 * Math.sin(t * 0.42) + 0.035 * Math.sin(t * 1.05 + 2.4);
+      const pulse = frozen
+        ? 1
+        : 1 + 0.09 * Math.sin(t * 0.42) + 0.035 * Math.sin(t * 1.05 + 2.4);
       g = Math.max(0, p.glow * pulse);
       pScale = Math.max(0.7, Math.min(1.7, R / 560));
       starAlpha = photoReady ? 0.3 : 1;
-      dustAlpha = photoReady ? 0.55 : 1;
+      // Over the photograph the real Hubble dust lane already carries the
+      // detail — the procedural blobs only laid soft grey fuzz on top of it.
+      // Kept low so the plate stays crisp; the drawn fallback still gets full.
+      dustAlpha = photoReady ? 0.32 : 1;
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.globalCompositeOperation = "source-over";

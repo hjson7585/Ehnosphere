@@ -19,8 +19,8 @@ export default function Landing() {
       {/* 솜브레로 은하 — 은은하게 빛나며 천천히 회전 */}
       <SombreroGalaxy centerX={0.5} centerY={0.5} />
 
-      {/* seat the dial gently — just enough for the hands to hold, not enough to hide the galaxy */}
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_center,rgba(3,4,9,0.34)_0%,rgba(3,4,9,0.14)_38%,rgba(3,4,9,0)_72%)]" />
+      {/* a whisper of shade under the dial — the hands still hold, but the galaxy stays open and crisp */}
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_center,rgba(3,4,9,0.2)_0%,rgba(3,4,9,0.07)_36%,rgba(3,4,9,0)_68%)]" />
 
       <main className="relative z-10 flex min-h-screen items-center justify-center p-6">
         <motion.div
