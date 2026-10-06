@@ -46,10 +46,23 @@ const TONES = ["255,244,226", "255,206,148", "198,216,255", "255,255,255"];
  * plate read as a milky haze. Lifting a little *and* stretching contrast
  * keeps the black sky at true black while the lit dust lane snaps forward,
  * so the photograph reads crisp instead of foggy; saturate puts the amber
- * back after the contrast pull. Applied once while the photo layer is built,
- * never per frame.
+ * back after the contrast pull.
+ *
+ * The pair is chosen for its shoulder, not its punch: this combination clips
+ * at v ≈ 0.85, where brightness(1.2) alone clipped at 0.83. The unsharp mask
+ * in `sharpenPhoto` lifts bright structure before the filter sees it, so
+ * every fraction of headroom here is bright dust-lane detail that survives
+ * instead of merging into flat white.
+ *
+ * Applied once while the photo layer is built, never per frame.
  */
-const PHOTO_FILTER = "brightness(1.15) contrast(1.12) saturate(1.06)";
+const PHOTO_FILTER = "brightness(1.1) contrast(1.14) saturate(1.06)";
+/**
+ * How hard the plate is unsharp-masked when its layer is built, 0–1. The
+ * Hubble mosaic is already resolved to the pixel — what made it read soft was
+ * everything happening *after* it left the file. See `sharpenPhoto`.
+ */
+const PHOTO_SHARPEN = 0.5;
 
 type DiskParticle = {
   rn: number;
@@ -224,6 +237,69 @@ export default function SombreroGalaxy({
     }
 
     /**
+     * A one-sided unsharp mask, assembled out of four GPU blits so even a
+     * twelve-megapixel layer costs one extra canvas instead of a pass over
+     * every pixel:
+     *
+     *   work  = min(source, blur(source))       // the low-pass, clamped
+     *   hi    = source - work                   // = max(source - blur, 0)
+     *   out   = work + hi + amount * hi         // = source + amount * hi
+     *
+     * Only the bright side of every edge is boosted. Against a near-black sky
+     * the dark side of an edge carries no information, and leaving it out is
+     * what keeps the mask from drawing the grey rings that make a sharpened
+     * photograph look cheap — here the dust lane and the star field simply
+     * come into focus. Runs once, while the layer is built, never per frame.
+     */
+    function sharpenPhoto(
+      c: HTMLCanvasElement,
+      target: CanvasRenderingContext2D,
+    ) {
+      if (PHOTO_SHARPEN <= 0) return;
+      const layerW = c.width;
+      const layerH = c.height;
+      if (layerW < 4 || layerH < 4) return;
+
+      const work = document.createElement("canvas");
+      work.width = layerW;
+      work.height = layerH;
+      const wg = work.getContext("2d");
+      if (!wg) return;
+      wg.imageSmoothingEnabled = true;
+      wg.imageSmoothingQuality = "high";
+
+      // work <- blur(source); the radius is quoted in device pixels, so it
+      // stays ~1 CSS px wide whatever the pixel ratio of the panel is
+      const radius = Math.max(1, Math.round(0.9 * dpr));
+      wg.filter = `blur(${radius}px)`;
+      wg.drawImage(c, 0, 0);
+      wg.filter = "none";
+
+      // work <- min(source, blur): everything the blur does not overshoot
+      wg.globalCompositeOperation = "darken";
+      wg.drawImage(c, 0, 0);
+
+      // source <- source - min(source, blur): the bright detail, on its own.
+      // difference() is an absolute value, but the operand is a minimum, so
+      // the result is never negative — that is the whole trick.
+      target.globalCompositeOperation = "difference";
+      target.drawImage(work, 0, 0);
+
+      // work <- low-pass + detail (the original plate) + amount x detail
+      wg.globalCompositeOperation = "lighter";
+      wg.globalAlpha = 1;
+      wg.drawImage(c, 0, 0);
+      wg.globalAlpha = PHOTO_SHARPEN;
+      wg.drawImage(c, 0, 0);
+      wg.globalAlpha = 1;
+
+      // lay the finished plate back over the source
+      target.globalCompositeOperation = "source-over";
+      target.clearRect(0, 0, layerW, layerH);
+      target.drawImage(work, 0, 0);
+    }
+
+    /**
      * Pre-render the mosaic at device resolution with every edge faded to
      * zero alpha. Drawn that way, no rectangle can ever show up against the
      * sky — the photograph simply dissolves into the surrounding stars.
@@ -246,6 +322,7 @@ export default function SombreroGalaxy({
       g2.imageSmoothingEnabled = true;
       g2.imageSmoothingQuality = "high";
       paintPhoto(g2, cw, ch);
+      sharpenPhoto(c, g2);
 
       // Mask on the galaxy itself: an ellipse with a wide, smooth falloff that
       // reaches zero before any edge of the frame — no rectangle, no hard rim,
@@ -510,15 +587,25 @@ export default function SombreroGalaxy({
     /** The Hubble mosaic — held still; only the material inside it turns. */
     function drawPhoto() {
       if (!photoLayer || !photoAspect) return;
-      const dw = photoWidth(w, h);
-      const dh = photoAspect * dw;
-      const x0 = cx - CORE.x * dw;
-      const y0 = cy - CORE.y * dh;
       ctx.save();
+      // Raw device pixels on a whole-pixel origin. The layer already *is*
+      // photoLayer.width x photoLayer.height device pixels, so the only way
+      // it can reach the screen untouched is laid down 1:1 — placing it at a
+      // fractional coordinate made the compositor resample a texture that
+      // was already exactly its own size, and that half-pixel wobble was
+      // itself a blur. Snapping around the nucleus rather than around the
+      // frame keeps CORE on the clock's pivot inside half a device pixel.
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       // painted straight on — photographic tonality, no additive blow-out
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
-      ctx.drawImage(photoLayer, x0, y0, dw, dh);
+      ctx.drawImage(
+        photoLayer,
+        Math.round(cx * dpr - CORE.x * photoLayer.width),
+        Math.round(cy * dpr - CORE.y * photoLayer.height),
+        photoLayer.width,
+        photoLayer.height,
+      );
       ctx.restore();
     }
 
@@ -644,10 +731,12 @@ export default function SombreroGalaxy({
         const tw = 0.6 + 0.4 * Math.sin(t * 1.25 + s.phase);
         const alpha = Math.max(0, s.alpha * tw);
         if (alpha < 0.03) continue;
-        const size = s.size * 5;
+        // small and quiet: at 5x a soft sprite this read as an out-of-focus
+        // smudge sitting on top of a sharp plate, not as a star
+        const size = s.size * 3.2;
         const x = s.x * w;
         const y = s.y * h;
-        ctx.globalAlpha = alpha * 0.9;
+        ctx.globalAlpha = alpha * 0.6;
         ctx.drawImage(sprite, x - size * 0.5, y - size * 0.5, size, size);
       }
     }
@@ -675,11 +764,15 @@ export default function SombreroGalaxy({
         : 1 + 0.09 * Math.sin(t * 0.42) + 0.035 * Math.sin(t * 1.05 + 2.4);
       g = Math.max(0, p.glow * pulse);
       pScale = Math.max(0.7, Math.min(1.7, R / 560));
-      starAlpha = photoReady ? 0.3 : 1;
+      // The photograph already contains a star field and a dust lane; the
+      // procedural ones are only here to make the disk read as *turning*.
+      // Kept faint enough to signal motion without veiling the plate under a
+      // wash of soft sprites — every one of those sprites is a small blur.
+      starAlpha = photoReady ? 0.15 : 1;
       // Over the photograph the real Hubble dust lane already carries the
       // detail — the procedural blobs only laid soft grey fuzz on top of it.
       // Kept low so the plate stays crisp; the drawn fallback still gets full.
-      dustAlpha = photoReady ? 0.32 : 1;
+      dustAlpha = photoReady ? 0.24 : 1;
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.globalCompositeOperation = "source-over";
