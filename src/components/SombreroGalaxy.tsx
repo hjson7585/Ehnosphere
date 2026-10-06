@@ -52,16 +52,16 @@ export const BASE_PERIOD = 200;
 const NEBULA_SPIN = 0.15;
 /**
  * The dust-lane sweep rides its own clock at RING_SPIN of the disk's rate —
- * 800 s per circuit at the default speed, 0.45°/s, which works out to about
- * 2 px of arc per second along the lane on a 1280-wide panel and 3 px on a
+ * 571 s per circuit at the default speed, 0.63°/s, which works out to about
+ * 2.7 px of arc per second along the lane on a 1280-wide panel and 4 px on a
  * 1920-wide one (the ellipse is scaled from the photograph, so the linear
  * speed follows the window; the angular speed does not).
  *
  * The three periods are deliberately nested with radius, the way real orbits
- * are: the disk turns fastest (200 s), then the lane sweep (800 s), then the
+ * are: the disk turns fastest (200 s), then the lane sweep (571 s), then the
  * outer haze (1333 s).
  */
-const RING_SPIN = 0.25;
+const RING_SPIN = 0.35;
 /** Viewing inclination — nearly edge-on, like the Hubble portrait, so the
  *  brim stays thin and the bulge reads taller than the disk. */
 const COS_I = Math.cos((78 * Math.PI) / 180);
