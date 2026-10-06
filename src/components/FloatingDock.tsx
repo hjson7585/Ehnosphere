@@ -141,12 +141,14 @@ const FloatingDockDesktop = ({
   className?: string;
 }) => {
   const mouseX = useMotionValue(Infinity);
+  // Frameless: no pill, no border, no shadow — the buttons sit straight on
+  // the sky, and this wrapper only exists to track the cursor across them.
   return (
     <motion.div
       onMouseMove={(e) => mouseX.set(e.clientX)}
       onMouseLeave={() => mouseX.set(Infinity)}
       className={cn(
-        "pointer-events-auto panel-space mx-auto hidden h-16 items-end gap-4 rounded-2xl px-4 pb-3 shadow-[0_20px_60px_-24px_rgba(0,0,0,0.9)] md:flex",
+        "pointer-events-auto mx-auto hidden gap-4 md:flex",
         className,
       )}
     >
