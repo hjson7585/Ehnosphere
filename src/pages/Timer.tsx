@@ -152,7 +152,7 @@ export default function Timer() {
           <div className="relative flex flex-col items-center gap-2">
             <span
               className={cn(
-                "font-display text-glow text-[clamp(3rem,13vmin,6.5rem)] leading-none tabular-nums text-foreground",
+                "font-sans font-extralight text-glow text-[clamp(3rem,13vmin,6.5rem)] leading-none tabular-nums text-foreground",
                 done && "animate-pulse text-primary",
               )}
             >
