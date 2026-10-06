@@ -1,5 +1,4 @@
 import { AppDock } from "@/components/FloatingDock";
-import SombreroGalaxy from "@/components/SombreroGalaxy";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -96,13 +95,9 @@ export default function Timer() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 1.2, ease: "easeOut" }}
-      className="relative min-h-screen overflow-hidden bg-background"
+      className="relative min-h-screen overflow-hidden"
     >
-      {/* 솜브레로 은하 — 같은 하늘 위에서 돕니다 */}
-      <SombreroGalaxy centerX={0.5} centerY={0.5} />
-
-      {/* seat the numerals against the core, without hiding the disk */}
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_center,rgba(3,4,9,0.5)_0%,rgba(3,4,9,0.22)_38%,rgba(3,4,9,0)_72%)]" />
+      {/* 배경(은하와 그늘)은 SharedSky가 라우트 위에서 한 번만 그립니다 — Clock과 Timer가 같은 하늘을 공유합니다 */}
 
       <main className="relative z-10 flex min-h-screen flex-col items-center justify-center gap-7 p-6 pb-28">
         <motion.p
