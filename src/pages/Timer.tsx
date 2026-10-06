@@ -2,7 +2,7 @@ import { AppDock } from "@/components/FloatingDock";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 const RING_R = 168;
@@ -25,32 +25,6 @@ function toHMS(ms: number) {
 }
 
 /**
- * 직접 입력한 시:분:초 해석 — "30"은 30분(분 단위 버튼의 계승), "5:30"은
- * 5분 30초, "1:30:00"은 1시간 30분. 맨 뒷자리는 초라 59를 넘을 수 없고,
- * 결과는 1초 ~ 99:59:59 사이. 형식이 맞지 않으면 null.
- */
-function parseHMS(raw: string): number | null {
-  const parts = raw.trim().split(":");
-  if (parts.length > 3 || parts.some((p) => !/^\d{1,3}$/.test(p))) return null;
-  const n = parts.map((p) => Number(p));
-  let h = 0;
-  let m = 0;
-  let s = 0;
-  if (n.length === 3) {
-    [h, m, s] = [n[0] ?? 0, n[1] ?? 0, n[2] ?? 0];
-    if (m > 59 || s > 59) return null;
-  } else if (n.length === 2) {
-    [m, s] = [n[0] ?? 0, n[1] ?? 0];
-    if (s > 59) return null;
-  } else {
-    m = n[0] ?? 0;
-  }
-  const ms = ((h * 60 + m) * 60 + s) * 1000;
-  if (ms < 1_000 || ms > 99 * 3_600_000 + 59 * 60_000 + 59_000) return null;
-  return ms;
-}
-
-/**
  * The second face of the app: a countdown seated in the same rotating sky as
  * the clock, so the two views read as one instrument.
  */
@@ -61,9 +35,10 @@ export default function Timer() {
   const [endsAt, setEndsAt] = useState(0);
   const [done, setDone] = useState(false);
   const fired = useRef(false);
-  // 시분초 직접 입력 편집 모드
+  // 시분초 직접 입력 편집 모드 — 콜론은 고정, 숫자 세 칸만 수정한다
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
+  const [segs, setSegs] = useState(["0", "00", "00"]);
+  const segRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   // Drift-free countdown: the deadline is a timestamp, not a decrement.
   useEffect(() => {
@@ -118,17 +93,43 @@ export default function Timer() {
   };
 
   const openEdit = () => {
-    setDraft(toHMS(duration));
+    setSegs(["0", "00", "00"]);
     setEditing(true);
   };
 
-  /** 입력 확정 — 형식이 맞으면 설정을 갱신하고, 틀렸으면 false. */
+  /**숫자 칸 하나 — 숫자만 남기고 최대 두 자리까지. */
+  const setSeg = (i: number, raw: string) => {
+    const digits = raw.replace(/[^\d]/g, "").slice(0, 2);
+    setSegs((prev) => prev.map((seg, j) => (j === i ? digits : seg)));
+  };
+
+  /** 세 칸 검사 — 잘못된 칸 인덱스, 또는 유효한 밀리초. */
+  const readEdit = (): { bad: number } | { ms: number } => {
+    const h = Number(segs[0] || 0);
+    const m = Number(segs[1] || 0);
+    const s = Number(segs[2] || 0);
+    if (m > 59) return { bad: 1 };
+    if (s > 59) return { bad: 2 };
+    const ms = (h * 3600 + m * 60 + s) * 1000;
+    if (ms < 1_000) return { bad: 2 };
+    return { ms };
+  };
+
+  /** 확정 — 값이 맞으면 설정을 갱신하고 닫고, 틀렸으면 false. */
   const commitEdit = () => {
-    const ms = parseHMS(draft);
-    if (ms === null) return false;
-    pick(ms);
+    const r = readEdit();
+    if ("bad" in r) return false;
+    pick(r.ms);
     setEditing(false);
     return true;
+  };
+
+  /** 확정이 안 될 때 문제가 된 칸을 골라 준다. */
+  const focusBadSeg = () => {
+    const r = readEdit();
+    const idx = "bad" in r ? r.bad : 2;
+    segRefs.current[idx]?.focus();
+    segRefs.current[idx]?.select();
   };
 
   const progress = duration > 0 ? 1 - remaining / duration : 0;
@@ -143,15 +144,6 @@ export default function Timer() {
       {/* 배경(은하와 그늘)은 SharedSky가 라우트 위에서 한 번만 그립니다 — Clock과 Timer가 같은 하늘을 공유합니다 */}
 
       <main className="relative z-10 flex min-h-screen flex-col items-center justify-center gap-7 p-6 pb-28">
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 0.1 }}
-          className="text-xs tracking-[0.45em] text-muted-foreground uppercase"
-        >
-          Timer
-        </motion.p>
-
         <motion.div
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -182,7 +174,7 @@ export default function Timer() {
               strokeDashoffset={RING_C * (1 - progress)}
               className={cn(
                 "transition-[stroke-dashoffset] duration-300 ease-linear",
-                done ? "stroke-destructive" : "stroke-primary",
+                done ? "stroke-destructive" : "stroke-primary/20",
               )}
             />
           </svg>
@@ -190,42 +182,62 @@ export default function Timer() {
           <div className="relative flex flex-col items-center gap-2">
             <span
               className={cn(
-                "font-sans font-extralight text-glow text-[clamp(3rem,13vmin,6.5rem)] leading-none tabular-nums text-foreground",
+                "font-sans font-extralight text-glow text-[clamp(2.25rem,10vmin,4.75rem)] leading-none tabular-nums text-foreground",
                 done && "animate-pulse text-primary",
               )}
             >
               {format(remaining)}
             </span>
             <span className="text-xs tracking-[0.3em] text-muted-foreground">
-              {running ? "측정 중" : done ? "완료" : "대기"}
+              {running ? "측정 중" : done ? "완료" : "정지"}
             </span>
           </div>
         </motion.div>
 
-        {/* 설정 버튼 하나 — 누르면 시:분:초를 직접 타이핑하는 입력으로 바뀝니다 */}
+        {/* 설정 버튼 하나 — 누르면 0:00:00 세 칸으로 바뀝니다. 콜론은 고정, 숫자만 지워서 씁니다 */}
         <div className="flex items-center justify-center">
           {editing ? (
-            <input
-              autoFocus
-              type="text"
-              maxLength={8}
-              value={draft}
-              placeholder="0:00:00"
-              aria-label="타이머 시간 설정 (시:분:초)"
-              onChange={(e) => setDraft(e.target.value.replace(/[^\d:]/g, ""))}
-              onFocus={(e) => e.target.select()}
-              onBlur={() => {
-                if (!commitEdit()) setEditing(false);
+            <div
+              className="flex h-8 items-center gap-1 rounded-full border border-border px-4 tabular-nums focus-within:border-primary/70"
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                  if (!commitEdit()) setEditing(false);
+                }
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  if (!commitEdit()) e.currentTarget.select();
+                  if (!commitEdit()) focusBadSeg();
                 } else if (e.key === "Escape") {
                   setEditing(false);
                 }
               }}
-              className="h-8 w-32 rounded-full border border-border bg-transparent px-4 text-center text-sm font-medium tabular-nums text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/70"
-            />
+            >
+              {(["시", "분", "초"] as const).map((label, i) => (
+                <Fragment key={label}>
+                  {i > 0 && (
+                    <span
+                      aria-hidden="true"
+                      className="text-sm text-muted-foreground"
+                    >
+                      :
+                    </span>
+                  )}
+                  <input
+                    autoFocus={i === 0}
+                    ref={(el) => {
+                      segRefs.current[i] = el;
+                    }}
+                    value={segs[i]}
+                    inputMode="numeric"
+                    maxLength={2}
+                    aria-label={label}
+                    onChange={(e) => setSeg(i, e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    className="w-8 bg-transparent text-center text-sm font-medium text-foreground outline-none"
+                  />
+                </Fragment>
+              ))}
+            </div>
           ) : (
             <Button
               size="sm"
@@ -234,7 +246,6 @@ export default function Timer() {
               className="rounded-full border border-border px-4"
             >
               <span className="tabular-nums">{toHMS(duration)}</span>
-              <span className="text-muted-foreground">· 시분초 입력</span>
             </Button>
           )}
         </div>
