@@ -20,7 +20,7 @@ import sombreroPhotoLight from "@/assets/sombrero-galaxy-2048.jpg";
 export type SombreroGalaxyProps = {
   /** Extra classes for the fixed wrapper (positioning, z-index). */
   className?: string;
-  /** Rotation multiplier. 1 ≈ 300 s per revolution, 0 freezes the disk. */
+  /** Rotation multiplier. 1 ≈ 200 s per revolution, 0 freezes the disk. */
   speed?: number;
   /** Core luminosity, 0–2. */
   glow?: number;
@@ -33,8 +33,13 @@ export type SombreroGalaxyProps = {
 };
 
 const TAU = Math.PI * 2;
-/** Seconds per revolution at speed = 1 — a stately, barely-there turn. */
-export const BASE_PERIOD = 300;
+/**
+ * Seconds per revolution at speed = 1. Unhurried, but quick enough that the
+ * turn actually registers: 1.8° per second, one full sweep every 3 min 20 s.
+ * At the old 300 s it was 1.2°/s — slow enough to read as *still* rather
+ * than as *turning*.
+ */
+export const BASE_PERIOD = 200;
 /** Viewing inclination — nearly edge-on, like the Hubble portrait, so the
  *  brim stays thin and the bulge reads taller than the disk. */
 const COS_I = Math.cos((78 * Math.PI) / 180);
