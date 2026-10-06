@@ -10,8 +10,9 @@ import sombreroPhotoLight from "@/assets/sombrero-galaxy-2048.jpg";
  * drawn additively so its black sky stays transparent over our starfield.
  * The photograph never spins: instead the material inside it turns — stars
  * and dust revolve through the brim while a soft light travels around the
- * disk, the haze beyond the brim circles the nucleus far more slowly still,
- * and the whole thing breathes in brightness. If the photo ever fails
+ * disk, the light and shadow sweep the dust lane, the haze beyond the brim
+ * circles the nucleus more slowly still, and the whole thing breathes in
+ * brightness. If the photo ever fails
  * to load, it falls back to a fully drawn disk — particles, luminous bulge
  * and dark dust lane. Every moving part reads the same rotation angle, so a
  * page can change speed / glow / density live without restarting anything.
@@ -49,6 +50,18 @@ export const BASE_PERIOD = 200;
  * asking for the nebulae to turn "just a little".
  */
 const NEBULA_SPIN = 0.15;
+/**
+ * The dust-lane sweep rides its own clock at RING_SPIN of the disk's rate —
+ * 800 s per circuit at the default speed, 0.45°/s, which works out to about
+ * 2 px of arc per second along the lane on a 1280-wide panel and 3 px on a
+ * 1920-wide one (the ellipse is scaled from the photograph, so the linear
+ * speed follows the window; the angular speed does not).
+ *
+ * The three periods are deliberately nested with radius, the way real orbits
+ * are: the disk turns fastest (200 s), then the lane sweep (800 s), then the
+ * outer haze (1333 s).
+ */
+const RING_SPIN = 0.25;
 /** Viewing inclination — nearly edge-on, like the Hubble portrait, so the
  *  brim stays thin and the bulge reads taller than the disk. */
 const COS_I = Math.cos((78 * Math.PI) / 180);
@@ -179,6 +192,8 @@ export default function SombreroGalaxy({
     let rot = 0;
     /** the outer nebula's own angle — same clock as rot, NEBULA_SPIN as fast */
     let nebRot = 0;
+    /** the dust-lane sweep's angle — same clock again, RING_SPIN as fast */
+    let ringRot = 0;
     let last = performance.now();
     let raf = 0;
     let needsDraw = true;
@@ -689,6 +704,52 @@ export default function SombreroGalaxy({
       ctx.restore();
     }
 
+    /**
+     * Light and shadow travelling around the dust lane — the black band that
+     * gives the Sombrero its brim, and the ring you can actually see.
+     *
+     * The lane is drawn as a flat ellipse a little tighter than the brim the
+     * sheen rides, at ≈ cos 78°: the same inclination the drawn disk uses, so
+     * the sweep tracks the photograph's own band instead of floating over it.
+     * Two lobes orbit it in opposite phase — a warm glow set with `lighter`,
+     * a soft darkening set with `source-over`. A shadow can only subtract, so
+     * that is the whole trick; no clipping, no extra layer.
+     *
+     * Its own slow clock (RING_SPIN) keeps it from simply riding along with
+     * the disk: it reads as weather passing over the lane rather than as one
+     * more thing spinning at the same rate.
+     */
+    function drawRingSweep() {
+      const rx = photoReady ? photoWidth(w, h) * 0.37 : R * 0.9;
+      const ry = photoReady ? photoWidth(w, h) * 0.08 : R * 0.19;
+      const ux = Math.cos(ringRot) * 0.62;
+      const uy = Math.sin(ringRot) * 0.62;
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(rx, ry);
+
+      // the half of the band held in shadow
+      ctx.globalCompositeOperation = "source-over";
+      const shade = ctx.createRadialGradient(-ux, -uy, 0, -ux, -uy, 0.5);
+      shade.addColorStop(0, "rgba(1, 2, 6, 0.26)");
+      shade.addColorStop(0.5, "rgba(1, 2, 6, 0.12)");
+      shade.addColorStop(1, "rgba(1, 2, 6, 0)");
+      ctx.fillStyle = shade;
+      ctx.fillRect(-1.2, -1.2, 2.4, 2.4);
+
+      // the other half, catching a low warm gleam
+      ctx.globalCompositeOperation = "lighter";
+      const gleam = ctx.createRadialGradient(ux, uy, 0, ux, uy, 0.5);
+      gleam.addColorStop(0, "rgba(255, 226, 184, 0.1)");
+      gleam.addColorStop(0.5, "rgba(238, 186, 130, 0.045)");
+      gleam.addColorStop(1, "rgba(210, 150, 100, 0)");
+      ctx.fillStyle = gleam;
+      ctx.fillRect(-1.2, -1.2, 2.4, 2.4);
+
+      ctx.restore();
+    }
+
     function drawHalo() {
       // keep the bloom hugging the galaxy, however far away it is
       const hr = photoReady ? photoWidth(w, h) * 0.52 : R * 1.35;
@@ -811,6 +872,9 @@ export default function SombreroGalaxy({
         // the outer haze keeps its own, much slower hand on the same clock
         nebRot =
           (nebRot + (TAU * dt * p.speed * NEBULA_SPIN) / BASE_PERIOD) % TAU;
+        // and the dust-lane sweep, slower still
+        ringRot =
+          (ringRot + (TAU * dt * p.speed * RING_SPIN) / BASE_PERIOD) % TAU;
       }
       t = frozen ? 0 : now / 1000;
 
@@ -847,6 +911,7 @@ export default function SombreroGalaxy({
       if (photoReady) {
         drawPhoto(); // real Hubble M104, held still
         drawHalo(); // warm bloom breathing over the photograph
+        drawRingSweep(); // light and shadow travelling the dust lane
         drawSheen(); // travelling light — the slow rotation
         drawDisk(false); // stars revolving through the brim
         drawDust(false);
