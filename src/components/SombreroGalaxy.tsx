@@ -626,8 +626,13 @@ export default function SombreroGalaxy({
       const ux = Math.cos(rot) * 0.62;
       const uy = Math.sin(rot) * 0.62;
       const grd = ctx.createRadialGradient(ux, uy, 0, ux, uy, 0.5);
-      grd.addColorStop(0, `rgba(255, 238, 208, ${a16(0.08 * g)})`);
-      grd.addColorStop(0.5, `rgba(255, 208, 156, ${a16(0.035 * g)})`);
+      // The photograph itself never moves, so this sweep is the loudest thing
+      // left saying "turning". At 0.08 it sat under the plate's own contrast
+      // and the rotation read as stopped — raised, it carries the motion on
+      // its own. Broad and warm, so it stays a light rather than a haze: it
+      // only ever touches the brim.
+      grd.addColorStop(0, `rgba(255, 238, 208, ${a16(0.15 * g)})`);
+      grd.addColorStop(0.5, `rgba(255, 208, 156, ${a16(0.07 * g)})`);
       grd.addColorStop(1, "rgba(255, 190, 140, 0)");
       ctx.fillStyle = grd;
       ctx.fillRect(-1.2, -1.2, 2.4, 2.4);
@@ -668,7 +673,11 @@ export default function SombreroGalaxy({
             (0.45 + 0.55 * Math.min(g, 1.6)) *
             starAlpha;
           if (alpha < 0.02) continue;
-          const size = pt.size * pScale * 4.2;
+          // Smaller than it used to be: at 4.2x each sprite was a soft
+          // smudge laying haze over the plate. Shrunk, the same count reads
+          // as crisp points of light — and points are what the eye actually
+          // tracks when it is trying to see something turn.
+          const size = pt.size * pScale * 3.0;
           ctx.globalAlpha = Math.min(1, alpha);
           ctx.drawImage(sprite, x - size * 0.5, y - size * 0.5, size, size);
         }
@@ -765,14 +774,16 @@ export default function SombreroGalaxy({
       g = Math.max(0, p.glow * pulse);
       pScale = Math.max(0.7, Math.min(1.7, R / 560));
       // The photograph already contains a star field and a dust lane; the
-      // procedural ones are only here to make the disk read as *turning*.
-      // Kept faint enough to signal motion without veiling the plate under a
-      // wash of soft sprites — every one of those sprites is a small blur.
-      starAlpha = photoReady ? 0.15 : 1;
-      // Over the photograph the real Hubble dust lane already carries the
-      // detail — the procedural blobs only laid soft grey fuzz on top of it.
-      // Kept low so the plate stays crisp; the drawn fallback still gets full.
-      dustAlpha = photoReady ? 0.24 : 1;
+      // procedural ones exist only to make the disk read as *turning*. Taken
+      // too far down (0.15) they stopped signalling motion at all — a single
+      // particle landed near alpha 0.05 against the plate, so the rotation
+      // disappeared along with them. Restored here, with the veil they used
+      // to cast paid for by shrinking every sprite in drawDisk instead of by
+      // dimming it.
+      starAlpha = photoReady ? 0.32 : 1;
+      // The dark lane is a weak motion cue and a strong veil, so it stays
+      // well under its original 0.55; the drawn fallback still gets it full.
+      dustAlpha = photoReady ? 0.32 : 1;
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.globalCompositeOperation = "source-over";
