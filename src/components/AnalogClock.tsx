@@ -72,8 +72,8 @@ export default function AnalogClock({ className = "" }: { className?: string }) 
         className="absolute inset-0 will-change-transform"
         style={{ transform: "rotate(0deg)" }}
       >
-        <div className="absolute top-1/2 left-1/2 h-[38%] w-[max(1.1px,0.24%)] -translate-x-1/2 -translate-y-full rounded-full bg-[linear-gradient(180deg,rgba(238,170,102,0.56),rgba(214,138,70,0.36))] shadow-[0_0_12px_rgba(238,170,102,0.18)]" />
-        <div className="absolute top-1/2 left-1/2 h-[6%] w-[1.2%] -translate-x-1/2 rounded-full bg-[rgba(238,170,102,0.48)] shadow-[0_0_10px_rgba(238,170,102,0.18)]" />
+        <div className="absolute top-1/2 left-1/2 h-[38%] w-[max(1.1px,0.24%)] -translate-x-1/2 -translate-y-full rounded-full bg-[linear-gradient(180deg,rgba(238,170,102,0.42),rgba(214,138,70,0.26))] shadow-[0_0_12px_rgba(238,170,102,0.1)]" />
+        <div className="absolute top-1/2 left-1/2 h-[6%] w-[1.2%] -translate-x-1/2 rounded-full bg-[rgba(238,170,102,0.34)] shadow-[0_0_10px_rgba(238,170,102,0.1)]" />
       </div>
 
       {/* pivot — a small star where the hands rise out of the core */}
