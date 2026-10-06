@@ -10,7 +10,8 @@ import sombreroPhotoLight from "@/assets/sombrero-galaxy-2048.jpg";
  * drawn additively so its black sky stays transparent over our starfield.
  * The photograph never spins: instead the material inside it turns — stars
  * and dust revolve through the brim while a soft light travels around the
- * disk, and the whole thing breathes in brightness. If the photo ever fails
+ * disk, the haze beyond the brim circles the nucleus far more slowly still,
+ * and the whole thing breathes in brightness. If the photo ever fails
  * to load, it falls back to a fully drawn disk — particles, luminous bulge
  * and dark dust lane. Every moving part reads the same rotation angle, so a
  * page can change speed / glow / density live without restarting anything.
@@ -40,6 +41,14 @@ const TAU = Math.PI * 2;
  * than as *turning*.
  */
 export const BASE_PERIOD = 200;
+/**
+ * The haze out in the black sky rides the same wheel at NEBULA_SPIN of the
+ * disk's rate — one circuit for every 1/NEBULA_SPIN revolutions of the stars.
+ * At the default speed that is 0.27°/s, about 15 px of arc over ten seconds:
+ * a drift you notice only once you look for it, which is the whole point of
+ * asking for the nebulae to turn "just a little".
+ */
+const NEBULA_SPIN = 0.15;
 /** Viewing inclination — nearly edge-on, like the Hubble portrait, so the
  *  brim stays thin and the bulge reads taller than the disk. */
 const COS_I = Math.cos((78 * Math.PI) / 180);
@@ -168,6 +177,8 @@ export default function SombreroGalaxy({
     let twinkles: FieldStar[] = [];
     let builtDensity = -1;
     let rot = 0;
+    /** the outer nebula's own angle — same clock as rot, NEBULA_SPIN as fast */
+    let nebRot = 0;
     let last = performance.now();
     let raf = 0;
     let needsDraw = true;
@@ -497,35 +508,10 @@ export default function SombreroGalaxy({
       g2.fillStyle = base;
       g2.fillRect(0, 0, w, h);
 
-      // A faint cold breath, upper left — kept low so the sky stays clean and
-      // open rather than fogged over.
-      const n1 = g2.createRadialGradient(
-        w * 0.26,
-        h * 0.3,
-        0,
-        w * 0.26,
-        h * 0.3,
-        Math.max(w, h) * 0.55,
-      );
-      n1.addColorStop(0, "rgba(34, 72, 104, 0.13)");
-      n1.addColorStop(0.5, "rgba(22, 44, 72, 0.05)");
-      n1.addColorStop(1, "rgba(8, 14, 28, 0)");
-      g2.fillStyle = n1;
-      g2.fillRect(0, 0, w, h);
-
-      // barely-there warmth along the galactic plane
-      const n2 = g2.createRadialGradient(
-        w * 0.5,
-        h * 0.5,
-        0,
-        w * 0.5,
-        h * 0.5,
-        Math.max(w, h) * 0.5,
-      );
-      n2.addColorStop(0, "rgba(122, 78, 38, 0.07)");
-      n2.addColorStop(1, "rgba(50, 28, 14, 0)");
-      g2.fillStyle = n2;
-      g2.fillRect(0, 0, w, h);
+      // The nebula haze used to be baked in right here — which pinned it to
+      // a sky that never moved. It now lives in drawNebula(), painted per
+      // frame so it can circle the nucleus. What stays static is what is
+      // genuinely static: the gradient wash and the distant stars.
 
       // distant, non-twinkling stars
       const count = Math.min(780, Math.round((w * h) / 2400));
@@ -572,6 +558,65 @@ export default function SombreroGalaxy({
       vignette.addColorStop(0, "rgba(2, 3, 8, 0)");
       vignette.addColorStop(1, "rgba(1, 2, 6, 0.32)");
       needsDraw = true;
+    }
+
+    /**
+     * The cold and warm haze living in the black sky past the brim, circling
+     * the Sombrero nucleus instead of sitting still.
+     *
+     * A radial gradient is symmetric about its own centre, so *orbiting* that
+     * centre is exactly equivalent to rotating the whole cloud about the
+     * core — and it is the cheaper of the two: nothing passes through a
+     * rotated transform, so no wedge of screen is ever left bare by a canvas
+     * edge that swung away. Same stops, same radii, same colours as when this
+     * was baked into the static layer — only the centre moves now.
+     */
+    function drawNebula() {
+      const cos = Math.cos(nebRot);
+      const sin = Math.sin(nebRot);
+      /** a frame-relative point carried around the nucleus by nebRot */
+      const orbit = (fx: number, fy: number) => {
+        const ox = fx * w - cx;
+        const oy = fy * h - cy;
+        return [cx + ox * cos - oy * sin, cy + ox * sin + oy * cos] as const;
+      };
+
+      ctx.globalCompositeOperation = "source-over";
+
+      // A faint cold breath, upper left — kept low so the sky stays clean and
+      // open rather than fogged over. This is the cloud that does the
+      // circling: its centre sits well clear of the nucleus.
+      const [n1x, n1y] = orbit(0.26, 0.3);
+      const n1 = ctx.createRadialGradient(
+        n1x,
+        n1y,
+        0,
+        n1x,
+        n1y,
+        Math.max(w, h) * 0.55,
+      );
+      n1.addColorStop(0, "rgba(34, 72, 104, 0.13)");
+      n1.addColorStop(0.5, "rgba(22, 44, 72, 0.05)");
+      n1.addColorStop(1, "rgba(8, 14, 28, 0)");
+      ctx.fillStyle = n1;
+      ctx.fillRect(0, 0, w, h);
+
+      // barely-there warmth along the galactic plane. On the landing page its
+      // centre coincides with the nucleus, so it sits on the axis of rotation
+      // and stays put; wherever the core is anchored elsewhere it drifts too.
+      const [n2x, n2y] = orbit(0.5, 0.5);
+      const n2 = ctx.createRadialGradient(
+        n2x,
+        n2y,
+        0,
+        n2x,
+        n2y,
+        Math.max(w, h) * 0.5,
+      );
+      n2.addColorStop(0, "rgba(122, 78, 38, 0.07)");
+      n2.addColorStop(1, "rgba(50, 28, 14, 0)");
+      ctx.fillStyle = n2;
+      ctx.fillRect(0, 0, w, h);
     }
 
     function drawDiskBody() {
@@ -763,6 +808,9 @@ export default function SombreroGalaxy({
       last = now;
       if (!frozen && p.speed > 0) {
         rot = (rot + (TAU * dt * p.speed) / BASE_PERIOD) % TAU;
+        // the outer haze keeps its own, much slower hand on the same clock
+        nebRot =
+          (nebRot + (TAU * dt * p.speed * NEBULA_SPIN) / BASE_PERIOD) % TAU;
       }
       t = frozen ? 0 : now / 1000;
 
@@ -794,6 +842,7 @@ export default function SombreroGalaxy({
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
       if (bg) ctx.drawImage(bg, 0, 0, w, h);
+      drawNebula(); // the haze, a little way around from where it was
 
       if (photoReady) {
         drawPhoto(); // real Hubble M104, held still
