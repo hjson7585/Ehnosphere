@@ -68,12 +68,11 @@ export const FloatingDock = ({
   );
 };
 
-const circleClass = (active?: boolean) =>
+/** The logo alone — no ring, no glass behind it. Active reads as brass. */
+const iconClass = (active?: boolean) =>
   cn(
-    "flex h-10 w-10 items-center justify-center rounded-full border backdrop-blur transition-colors",
-    active
-      ? "border-primary/50 bg-primary/20 text-primary"
-      : "border-border bg-card/70 text-foreground/70 hover:bg-card",
+    "flex h-10 w-10 items-center justify-center transition-colors",
+    active ? "text-primary" : "text-foreground/70 hover:text-foreground",
   );
 
 const FloatingDockMobile = ({
@@ -111,9 +110,9 @@ const FloatingDockMobile = ({
                   onClick={() => setOpen(false)}
                   aria-label={item.title}
                   aria-current={item.active ? "page" : undefined}
-                  className={circleClass(item.active)}
+                  className={iconClass(item.active)}
                 >
-                  <div className="h-4 w-4">{item.icon}</div>
+                  <div className="h-5 w-5">{item.icon}</div>
                 </Link>
               </motion.div>
             ))}
@@ -125,7 +124,7 @@ const FloatingDockMobile = ({
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-label="두 버튼 펼치기"
-        className={circleClass(false)}
+        className={iconClass(false)}
       >
         <IconLayoutNavbarCollapse className="h-5 w-5" />
       </button>
@@ -228,12 +227,7 @@ function IconContainer({
         style={{ width, height }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className={cn(
-          "relative flex aspect-square items-center justify-center rounded-full border backdrop-blur transition-colors",
-          active
-            ? "border-primary/50 bg-primary/20"
-            : "border-border bg-card/70 hover:bg-card",
-        )}
+        className="relative flex aspect-square items-center justify-center"
       >
         <AnimatePresence>
           {hovered && (
