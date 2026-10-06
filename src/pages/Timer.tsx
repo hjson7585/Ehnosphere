@@ -5,15 +5,6 @@ import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-/** Preset countdowns — quick picks under the ring. */
-const PRESETS = [
-  { label: "1분", ms: 60_000 },
-  { label: "3분", ms: 180_000 },
-  { label: "5분", ms: 300_000 },
-  { label: "10분", ms: 600_000 },
-  { label: "25분", ms: 1_500_000 },
-];
-
 const RING_R = 168;
 const RING_C = 2 * Math.PI * RING_R;
 
@@ -22,6 +13,41 @@ function format(ms: number) {
   const m = Math.floor(total / 60);
   const s = total % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+/** 표시용 시:분:초 — 5분은 "0:05:00". */
+function toHMS(ms: number) {
+  const total = Math.floor(ms / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+/**
+ * 직접 입력한 시:분:초 해석 — "30"은 30분(분 단위 버튼의 계승), "5:30"은
+ * 5분 30초, "1:30:00"은 1시간 30분. 맨 뒷자리는 초라 59를 넘을 수 없고,
+ * 결과는 1초 ~ 99:59:59 사이. 형식이 맞지 않으면 null.
+ */
+function parseHMS(raw: string): number | null {
+  const parts = raw.trim().split(":");
+  if (parts.length > 3 || parts.some((p) => !/^\d{1,3}$/.test(p))) return null;
+  const n = parts.map((p) => Number(p));
+  let h = 0;
+  let m = 0;
+  let s = 0;
+  if (n.length === 3) {
+    [h, m, s] = [n[0] ?? 0, n[1] ?? 0, n[2] ?? 0];
+    if (m > 59 || s > 59) return null;
+  } else if (n.length === 2) {
+    [m, s] = [n[0] ?? 0, n[1] ?? 0];
+    if (s > 59) return null;
+  } else {
+    m = n[0] ?? 0;
+  }
+  const ms = ((h * 60 + m) * 60 + s) * 1000;
+  if (ms < 1_000 || ms > 99 * 3_600_000 + 59 * 60_000 + 59_000) return null;
+  return ms;
 }
 
 /**
@@ -35,6 +61,9 @@ export default function Timer() {
   const [endsAt, setEndsAt] = useState(0);
   const [done, setDone] = useState(false);
   const fired = useRef(false);
+  // 시분초 직접 입력 편집 모드
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
 
   // Drift-free countdown: the deadline is a timestamp, not a decrement.
   useEffect(() => {
@@ -86,6 +115,20 @@ export default function Timer() {
     fired.current = false;
     setDuration(ms);
     setRemaining(ms);
+  };
+
+  const openEdit = () => {
+    setDraft(toHMS(duration));
+    setEditing(true);
+  };
+
+  /** 입력 확정 — 형식이 맞으면 설정을 갱신하고, 틀렸으면 false. */
+  const commitEdit = () => {
+    const ms = parseHMS(draft);
+    if (ms === null) return false;
+    pick(ms);
+    setEditing(false);
+    return true;
   };
 
   const progress = duration > 0 ? 1 - remaining / duration : 0;
@@ -159,25 +202,56 @@ export default function Timer() {
           </div>
         </motion.div>
 
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {PRESETS.map((p) => (
+        {/* 설정 버튼 하나 — 누르면 시:분:초를 직접 타이핑하는 입력으로 바뀝니다 */}
+        <div className="flex items-center justify-center">
+          {editing ? (
+            <input
+              autoFocus
+              type="text"
+              maxLength={8}
+              value={draft}
+              placeholder="0:00:00"
+              aria-label="타이머 시간 설정 (시:분:초)"
+              onChange={(e) => setDraft(e.target.value.replace(/[^\d:]/g, ""))}
+              onFocus={(e) => e.target.select()}
+              onBlur={() => {
+                if (!commitEdit()) setEditing(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (!commitEdit()) e.currentTarget.select();
+                } else if (e.key === "Escape") {
+                  setEditing(false);
+                }
+              }}
+              className="h-8 w-32 rounded-full border border-border bg-transparent px-4 text-center text-sm font-medium tabular-nums text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/70"
+            />
+          ) : (
             <Button
-              key={p.ms}
               size="sm"
-              variant={duration === p.ms ? "default" : "outline"}
-              onClick={() => pick(p.ms)}
-              className="rounded-full"
+              variant="ghost"
+              onClick={openEdit}
+              className="rounded-full border border-border px-4"
             >
-              {p.label}
+              <span className="tabular-nums">{toHMS(duration)}</span>
+              <span className="text-muted-foreground">· 시분초 입력</span>
             </Button>
-          ))}
+          )}
         </div>
 
         <div className="flex items-center gap-3">
-          <Button onClick={toggle} className="rounded-full px-8">
+          <Button
+            variant="ghost"
+            onClick={toggle}
+            className="rounded-full border border-border px-8"
+          >
             {running ? "일시정지" : done ? "다시 시작" : "시작"}
           </Button>
-          <Button variant="outline" onClick={reset} className="rounded-full">
+          <Button
+            variant="ghost"
+            onClick={reset}
+            className="rounded-full border border-border px-8"
+          >
             초기화
           </Button>
         </div>
