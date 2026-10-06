@@ -1,3 +1,4 @@
+import { AppDock } from "@/components/FloatingDock";
 import AnalogClock from "@/components/AnalogClock";
 import SombreroGalaxy from "@/components/SombreroGalaxy";
 import { motion } from "framer-motion";
@@ -30,6 +31,9 @@ export default function Landing() {
           <AnalogClock />
         </motion.div>
       </main>
+
+      {/* Clock face · Timer — 하단 플로팅 독 */}
+      <AppDock />
     </motion.div>
   );
 }
