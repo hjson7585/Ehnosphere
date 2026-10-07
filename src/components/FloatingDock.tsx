@@ -3,7 +3,14 @@ import {
   IconGalaxy,
   IconLayoutNavbarCollapse,
   IconStopwatch,
+  IconVolume2,
+  IconVolumeOff,
 } from "@tabler/icons-react";
+import {
+  getAmbientOn,
+  subscribeAmbient,
+  toggleAmbient,
+} from "@/lib/ambientAudio";
 import { cn } from "@/lib/utils";
 import {
   AnimatePresence,
@@ -13,14 +20,18 @@ import {
   useTransform,
   type MotionValue,
 } from "framer-motion";
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 
-/** One button in the dock. `active` marks the view that is on screen. */
+/** One button in the dock. `active` marks the view that is on screen — for
+ *  an action button (no href), that it is switched on. */
 export type DockItem = {
   title: string;
   icon: ReactNode;
-  href: string;
+  /** 없으면 이동하지 않는 액션 버튼으로 렌더된다 (ex. 소리 ON/OFF). */
+  href?: string;
+  /** href 없는 버튼의 동작. */
+  onClick?: () => void;
   active?: boolean;
 };
 
@@ -43,13 +54,24 @@ const APP_ITEMS: DockItem[] = [
   },
 ];
 
-/** Bottom-of-screen dock shared by every view it navigates between. */
+/** Bottom-of-screen dock shared by every view it navigates between.
+ *  오른쪽 끝의 스피커는 이동이 아니라 액션 — 은하의 BGM을 켜고 끈다. */
 export function AppDock() {
   const { pathname } = useLocation();
-  const items = APP_ITEMS.map((item) => ({
-    ...item,
-    active: item.href === pathname,
-  }));
+  const soundOn = useSyncExternalStore(subscribeAmbient, getAmbientOn);
+  const items: DockItem[] = [
+    ...APP_ITEMS.map((item) => ({ ...item, active: item.href === pathname })),
+    {
+      title: "Sound",
+      onClick: toggleAmbient,
+      active: soundOn,
+      icon: soundOn ? (
+        <IconVolume2 className="h-full w-full" strokeWidth={1.6} />
+      ) : (
+        <IconVolumeOff className="h-full w-full" strokeWidth={1.6} />
+      ),
+    },
+  ];
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center px-4 sm:bottom-6">
       <FloatingDock items={items} />
@@ -111,15 +133,30 @@ const FloatingDockMobile = ({
                 }}
                 transition={{ delay: (items.length - 1 - idx) * 0.05 }}
               >
-                <Link
-                  to={item.href}
-                  onClick={() => setOpen(false)}
-                  aria-label={item.title}
-                  aria-current={item.active ? "page" : undefined}
-                  className={iconClass(item.active)}
-                >
-                  <div className="h-5 w-5">{item.icon}</div>
-                </Link>
+                {item.href ? (
+                  <Link
+                    to={item.href}
+                    onClick={() => setOpen(false)}
+                    aria-label={item.title}
+                    aria-current={item.active ? "page" : undefined}
+                    className={iconClass(item.active)}
+                  >
+                    <div className="h-5 w-5">{item.icon}</div>
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      item.onClick?.();
+                      setOpen(false);
+                    }}
+                    aria-label={item.title}
+                    aria-pressed={item.active}
+                    className={iconClass(item.active)}
+                  >
+                    <div className="h-5 w-5">{item.icon}</div>
+                  </button>
+                )}
               </motion.div>
             ))}
           </motion.div>
@@ -129,7 +166,7 @@ const FloatingDockMobile = ({
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        aria-label="세 버튼 펼치기"
+        aria-label="네 버튼 펼치기"
         className={iconClass(false)}
       >
         <IconLayoutNavbarCollapse className="h-5 w-5" />
@@ -169,12 +206,14 @@ function IconContainer({
   title,
   icon,
   href,
+  onClick,
   active,
 }: {
   mouseX: MotionValue<number>;
   title: string;
   icon: ReactNode;
-  href: string;
+  href?: string;
+  onClick?: () => void;
   active?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -222,41 +261,59 @@ function IconContainer({
 
   const [hovered, setHovered] = useState(false);
 
+  const inner = (
+    <motion.div
+      ref={ref}
+      style={{ width, height }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="relative flex aspect-square items-center justify-center"
+    >
+      <AnimatePresence>
+        {hovered && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, y: 2, x: "-50%" }}
+            className="absolute -top-8 left-1/2 w-fit rounded-md border border-border bg-popover/95 px-2 py-0.5 text-xs whitespace-pre text-foreground backdrop-blur"
+          >
+            {title}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <motion.div
+        style={{ width: widthIcon, height: heightIcon }}
+        className={cn(
+          "flex items-center justify-center",
+          active ? "text-primary" : "text-foreground/70",
+        )}
+      >
+        {icon}
+      </motion.div>
+    </motion.div>
+  );
+
+  // 이동이 아닌 액션 버튼 (href 없음) — 소리 ON/OFF처럼
+  if (!href) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={title}
+        aria-pressed={active}
+        className="block"
+      >
+        {inner}
+      </button>
+    );
+  }
   return (
     <Link
       to={href}
       aria-label={title}
       aria-current={active ? "page" : undefined}
     >
-      <motion.div
-        ref={ref}
-        style={{ width, height }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        className="relative flex aspect-square items-center justify-center"
-      >
-        <AnimatePresence>
-          {hovered && (
-            <motion.div
-              initial={{ opacity: 0, y: 10, x: "-50%" }}
-              animate={{ opacity: 1, y: 0, x: "-50%" }}
-              exit={{ opacity: 0, y: 2, x: "-50%" }}
-              className="absolute -top-8 left-1/2 w-fit rounded-md border border-border bg-popover/95 px-2 py-0.5 text-xs whitespace-pre text-foreground backdrop-blur"
-            >
-              {title}
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <motion.div
-          style={{ width: widthIcon, height: heightIcon }}
-          className={cn(
-            "flex items-center justify-center",
-            active ? "text-primary" : "text-foreground/70",
-          )}
-        >
-          {icon}
-        </motion.div>
-      </motion.div>
+      {inner}
     </Link>
   );
 }
