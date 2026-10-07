@@ -196,13 +196,18 @@ export default function CarouselDemo({
       ? new URL("@/assets/sombrero-galaxy.jpg", import.meta.url).href
       : "/assets/sombrero-galaxy.jpg";
 
+  const oceanWaveSrc =
+    typeof import.meta !== "undefined" && import.meta?.url
+      ? new URL("/assets/ocean-wave.jpg", import.meta.url).href
+      : "/assets/ocean-wave.jpg";
+
   const slideData: SlideData[] = [
     {
       title: "Sombrero Galaxy",
       src: sombreroSrc,
     },
     {
-      title: "Urban Dreams",
+      title: "Ocean wave",
       src: "https://images.unsplash.com/photo-1518710843675-2540dd79065c?q=80&w=3387&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8fGVufDB8fHx8fA%3D%3D",
     },
     {

@@ -43,7 +43,7 @@ export default function SharedSky() {
           <img
             className="absolute inset-0 h-full w-full object-cover"
             alt="Ocean wave"
-            src="/assets/ocean-wave.webp"
+            src="/assets/ocean-wave.jpg"
             loading="eager"
             decoding="sync"
           />
