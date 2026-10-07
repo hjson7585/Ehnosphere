@@ -8,8 +8,8 @@ import sombreroPhotoLight from "@/assets/sombrero-galaxy-2048.jpg";
  *
  * The galaxy itself is the Hubble Space Telescope mosaic (NASA/ESA, 2003),
  * drawn additively so its black sky stays transparent over our starfield.
- * The photograph itself never turns — only what orbits it does: stars and
- * dust revolve through the brim, a soft light travels the disk, and a ring
+ * The photograph itself never turns — only what orbits it does: stars
+ * revolve through the brim, a soft light travels the disk, and a ring
  * of light sweeps the dust lane around the core. The haze
  * beyond the brim circles the nucleus more slowly still, and the whole
  * thing breathes in brightness. If the photo ever fails
@@ -889,16 +889,19 @@ export default function SombreroGalaxy({
       g = Math.max(0, p.glow * pulse);
       pScale = Math.max(0.7, Math.min(1.7, R / 560));
       // The photograph already contains a star field and a dust lane; the
-      // procedural ones exist only to make the disk read as *turning*. Taken
+      // procedural stars exist only to make the disk read as *turning*. Taken
       // too far down (0.15) they stopped signalling motion at all — a single
       // particle landed near alpha 0.05 against the plate, so the rotation
       // disappeared along with them. Restored here, with the veil they used
       // to cast paid for by shrinking every sprite in drawDisk instead of by
       // dimming it.
       starAlpha = photoReady ? 0.32 : 1;
-      // The dark lane is a weak motion cue and a strong veil, so it stays
-      // well under its original 0.55; the drawn fallback still gets it full.
-      dustAlpha = photoReady ? 0.32 : 1;
+      // No procedural dust is laid over the plate any more: those 30–100 px
+      // near-black sprites (rgb 3,4,9) swung through the nucleus and hung a
+      // faint smudge right above the core — the last of the black gas. The
+      // photograph carries its own lane, so drawDust() now runs only for the
+      // fallback disk; the plate path zeroes dustAlpha anyway, as a guard.
+      dustAlpha = photoReady ? 0 : 1;
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.globalCompositeOperation = "source-over";
@@ -912,9 +915,7 @@ export default function SombreroGalaxy({
         drawRingSweep(); // light travelling the dust lane
         drawSheen(); // travelling light — the slow rotation
         drawDisk(false); // stars revolving through the brim
-        drawDust(false);
         drawDisk(true);
-        drawDust(true);
       } else {
         drawHalo();
         drawDiskBody();
