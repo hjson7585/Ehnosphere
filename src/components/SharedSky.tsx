@@ -1,6 +1,9 @@
 import { useState, useCallback } from "react";
 import SombreroGalaxy from "@/components/SombreroGalaxy";
-import CarouselDemo from "@/components/CarouselDemo";
+import CarouselDemo, {
+  readStoredSlide,
+  storeSlide,
+} from "@/components/CarouselDemo";
 import { useLocation } from "react-router";
 
 /**
@@ -22,11 +25,11 @@ export default function SharedSky() {
   const { pathname } = useLocation();
   const path = pathname.replace(/\/+$/, "") || "/";
 
-  const [selectedSlideIndex, setSelectedSlideIndex] = useState(0);
-  const onSlideSelect = useCallback(
-    (index: number) => setSelectedSlideIndex(index),
-    [],
-  );
+  const [selectedSlideIndex, setSelectedSlideIndex] = useState(readStoredSlide);
+  const onSlideSelect = useCallback((index: number) => {
+    setSelectedSlideIndex(index);
+    storeSlide(index);
+  }, []);
   const showOcean = selectedSlideIndex === 1;
 
   if (path !== "/" && path !== "/timer" && path !== "/clean-view") return null;
@@ -43,7 +46,7 @@ export default function SharedSky() {
           <img
             className="absolute inset-0 h-full w-full object-cover"
             alt="Ocean wave"
-            src="/assets/ocean-wave.jpg"
+            src="/assets/ocean-wave.jpg?v=20261007"
             loading="eager"
             decoding="sync"
           />

@@ -11,6 +11,34 @@ interface SlideData {
   src: string;
 }
 
+/** Shared with SharedSky so a restored backdrop pick can be range-checked. */
+export const SLIDE_COUNT = 4;
+
+/** The backdrop pick lives in storage so a reload — or a tab opened later —
+ * restores the same slide instead of snapping back to the first one. Owned
+ * here (next to the slide list) and imported by SharedSky, which renders the
+ * background that the pick drives. */
+const SLIDE_STORAGE_KEY = "shared-sky-slide";
+
+export function readStoredSlide(): number {
+  try {
+    const stored = Number(window.localStorage.getItem(SLIDE_STORAGE_KEY));
+    return Number.isInteger(stored) && stored >= 0 && stored < SLIDE_COUNT
+      ? stored
+      : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function storeSlide(index: number) {
+  try {
+    window.localStorage.setItem(SLIDE_STORAGE_KEY, String(index));
+  } catch {
+    // storage unavailable (private mode / blocked) — the pick just won't persist
+  }
+}
+
 interface SlideProps {
   slide: SlideData;
   index: number;
@@ -118,7 +146,9 @@ interface CarouselProps {
 }
 
 const Carousel = ({ slides, onSlideSelect }: CarouselProps) => {
-  const [current, setCurrent] = useState(0);
+  // starts on the slide the user last picked, so the thumbnail and the
+  // background SharedSky paints agree on a freshly opened tab
+  const [current, setCurrent] = useState(readStoredSlide);
   const [hovered, setHovered] = useState(false);
   const wheelAcc = useRef(0);
   const wheelLock = useRef(0);
@@ -196,10 +226,9 @@ export default function CarouselDemo({
       ? new URL("@/assets/sombrero-galaxy.jpg", import.meta.url).href
       : "/assets/sombrero-galaxy.jpg";
 
-  const oceanWaveSrc =
-    typeof import.meta !== "undefined" && import.meta?.url
-      ? new URL("/assets/ocean-wave.jpg", import.meta.url).href
-      : "/assets/ocean-wave.jpg";
+  // Same asset (and same cache-busting query) as the SharedSky backdrop layer,
+  // so the thumbnail and the background it applies always show the same photo.
+  const oceanWaveSrc = "/assets/ocean-wave.jpg?v=20261007";
 
   const slideData: SlideData[] = [
     {
