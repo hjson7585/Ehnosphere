@@ -2,7 +2,7 @@ import { AppDock } from "@/components/FloatingDock";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 const RING_R = 168;
@@ -13,15 +13,6 @@ function format(ms: number) {
   const m = Math.floor(total / 60);
   const s = total % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
-
-/** 표시용 시:분:초 — 5분은 "0:05:00". */
-function toHMS(ms: number) {
-  const total = Math.floor(ms / 1000);
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 /**
@@ -35,10 +26,10 @@ export default function Timer() {
   const [endsAt, setEndsAt] = useState(0);
   const [done, setDone] = useState(false);
   const fired = useRef(false);
-  // 시분초 직접 입력 편집 모드 — 콜론은 고정, 숫자 세 칸만 수정한다
+  // 큰 숫자 직접 편집 — 포커스하면 숫자가 오른쪽에서 쌓이고 콜론은 고정이다
   const [editing, setEditing] = useState(false);
-  const [segs, setSegs] = useState(["0", "00", "00"]);
-  const segRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const [draft, setDraft] = useState("0500");
+  const draftBase = useRef("0500");
 
   // Drift-free countdown: the deadline is a timestamp, not a decrement.
   useEffect(() => {
@@ -92,47 +83,43 @@ export default function Timer() {
     setRemaining(ms);
   };
 
-  const openEdit = () => {
-    setSegs(["0", "00", "00"]);
+  /** 큰 숫자에 포커스 — 남은 시간을 네 자리(mmss)로 옮겨 적는다. */
+  const startEdit = () => {
+    if (running) return;
+    const total = Math.max(0, Math.ceil(remaining / 1000));
+    const mm = String(Math.floor(total / 60)).padStart(2, "0");
+    const ss = String(total % 60).padStart(2, "0");
+    const base = `${mm}${ss}`;
+    draftBase.current = base;
+    setDraft(base);
     setEditing(true);
   };
 
-  /**숫자 칸 하나 — 숫자만 남기고 최대 두 자리까지. */
-  const setSeg = (i: number, raw: string) => {
-    const digits = raw.replace(/[^\d]/g, "").slice(0, 2);
-    setSegs((prev) => prev.map((seg, j) => (j === i ? digits : seg)));
-  };
-
-  /** 세 칸 검사 — 잘못된 칸 인덱스, 또는 유효한 밀리초. */
-  const readEdit = (): { bad: number } | { ms: number } => {
-    const h = Number(segs[0] || 0);
-    const m = Number(segs[1] || 0);
-    const s = Number(segs[2] || 0);
-    if (m > 59) return { bad: 1 };
-    if (s > 59) return { bad: 2 };
-    const ms = (h * 3600 + m * 60 + s) * 1000;
-    if (ms < 1_000) return { bad: 2 };
-    return { ms };
-  };
-
-  /** 확정 — 값이 맞으면 설정을 갱신하고 닫고, 틀렸으면 false. */
+  /** 확정 — 값이 그대로면 그냥 닫고, 1초 미만이면 취소한다. */
   const commitEdit = () => {
-    const r = readEdit();
-    if ("bad" in r) return false;
-    pick(r.ms);
+    if (!editing) return; // 편집이 아닐 땐 (실행 중 읽기 전용 포커스 등) 아무 것도 하지 않는다
+    const padded = draft.padStart(4, "0");
+    const total = Math.min(
+      5999, // 99:59 — 큰 숫자는 네 자리라 그 이상은 쓰지 않는다
+      Number(padded.slice(0, 2)) * 60 + Number(padded.slice(2)),
+    );
+    if (total < 1) {
+      setEditing(false);
+      return;
+    }
+    if (draft !== draftBase.current) pick(total * 1000);
     setEditing(false);
-    return true;
   };
 
-  /** 확정이 안 될 때 문제가 된 칸을 골라 준다. */
-  const focusBadSeg = () => {
-    const r = readEdit();
-    const idx = "bad" in r ? r.bad : 2;
-    segRefs.current[idx]?.focus();
-    segRefs.current[idx]?.select();
-  };
+  const cancelEdit = () => setEditing(false);
 
   const progress = duration > 0 ? 1 - remaining / duration : 0;
+
+  // 편집 중엔 스케치한 네 자리, 아닐 땐 실제 남은 시간
+  const padded = draft.padStart(4, "0");
+  const shown = editing
+    ? `${padded.slice(0, 2)}:${padded.slice(2)}`
+    : format(remaining);
 
   return (
     <motion.div
@@ -180,75 +167,42 @@ export default function Timer() {
           </svg>
 
           <div className="relative flex flex-col items-center gap-2">
-            <span
+            <input
+              aria-label="타이머 시간 설정"
+              inputMode="numeric"
+              readOnly={running}
+              value={shown}
+              style={{ width: `${shown.length}ch` }}
+              onFocus={(e) => {
+                startEdit();
+                e.target.select();
+              }}
+              onChange={(e) =>
+                setDraft(e.target.value.replace(/[^\d]/g, "").slice(0, 4))
+              }
+              onBlur={commitEdit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitEdit();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  cancelEdit();
+                }
+              }}
               className={cn(
-                "font-sans font-extralight text-glow text-[clamp(2.25rem,10vmin,4.75rem)] leading-none tabular-nums text-foreground",
+                "border-0 bg-transparent p-0 text-center caret-primary outline-none tabular-nums",
+                "font-sans font-extralight text-glow text-[clamp(2.25rem,10vmin,4.75rem)] leading-none text-foreground",
+                running ? "cursor-default" : "cursor-text",
                 done && "animate-pulse text-primary",
               )}
-            >
-              {format(remaining)}
-            </span>
-            <span className="text-xs tracking-[0.3em] text-muted-foreground">
-              {running ? "측정 중" : done ? "완료" : "정지"}
+            />
+            {/* '측정 중'은 아예 없앴다 — 시간이 흐르는 동안 화면엔 숫자만 남는다 */}
+            <span className="flex h-4 items-center justify-center text-xs tracking-[0.3em] text-muted-foreground">
+              {running ? "" : done ? "완료" : "정지"}
             </span>
           </div>
         </motion.div>
-
-        {/* 설정 버튼 하나 — 누르면 0:00:00 세 칸으로 바뀝니다. 콜론은 고정, 숫자만 지워서 씁니다 */}
-        <div className="flex items-center justify-center">
-          {editing ? (
-            <div
-              className="flex h-8 items-center gap-1 rounded-full border border-border px-4 tabular-nums focus-within:border-primary/70"
-              onBlur={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                  if (!commitEdit()) setEditing(false);
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  if (!commitEdit()) focusBadSeg();
-                } else if (e.key === "Escape") {
-                  setEditing(false);
-                }
-              }}
-            >
-              {(["시", "분", "초"] as const).map((label, i) => (
-                <Fragment key={label}>
-                  {i > 0 && (
-                    <span
-                      aria-hidden="true"
-                      className="text-sm text-muted-foreground"
-                    >
-                      :
-                    </span>
-                  )}
-                  <input
-                    autoFocus={i === 0}
-                    ref={(el) => {
-                      segRefs.current[i] = el;
-                    }}
-                    value={segs[i]}
-                    inputMode="numeric"
-                    maxLength={2}
-                    aria-label={label}
-                    onChange={(e) => setSeg(i, e.target.value)}
-                    onFocus={(e) => e.target.select()}
-                    className="w-8 bg-transparent text-center text-sm font-medium text-foreground outline-none"
-                  />
-                </Fragment>
-              ))}
-            </div>
-          ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={openEdit}
-              className="rounded-full border border-border px-4"
-            >
-              <span className="tabular-nums">{toHMS(duration)}</span>
-            </Button>
-          )}
-        </div>
 
         <div className="flex items-center gap-3">
           <Button
