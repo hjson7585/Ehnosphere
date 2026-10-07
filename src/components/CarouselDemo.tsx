@@ -8,7 +8,6 @@ import {
 
 interface SlideData {
   title: string;
-  button: string;
   src: string;
 }
 
@@ -62,7 +61,7 @@ const Slide = ({
   // 호버 중에만 선택 블록이 선명해지고, 그 외에는 전부 투명도를 올린다
   const opacity = hovered ? (isSelected ? 1 : 0.4) : isSelected ? 0.5 : 0.2;
 
-  const { src, button, title } = slide;
+  const { src, title } = slide;
 
   return (
     <div className="[perspective:1200px] [transform-style:preserve-3d]">
@@ -101,20 +100,12 @@ const Slide = ({
           )}
         </div>
 
-        <article
+              <article
           className={`relative p-[1.5vmin] transition-opacity duration-1000 ease-in-out ${
             isSelected ? "visible opacity-100" : "invisible opacity-0"
           }`}
         >
           <h2 className="relative text-xs font-semibold md:text-sm">{title}</h2>
-          <div className="flex justify-center">
-            <button
-              type="button"
-              className="mx-auto mt-2 flex h-8 w-fit items-center justify-center rounded-2xl border border-transparent bg-white px-3 text-[11px] text-black shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),0px_1px_0px_0px_rgba(25,28,33,0.02),0px_0px_0px_1px_rgba(25,28,33,0.08)] transition duration-200 hover:shadow-lg sm:text-xs"
-            >
-              {button}
-            </button>
-          </div>
         </article>
       </li>
     </div>
@@ -192,22 +183,18 @@ export default function CarouselDemo() {
   const slideData: SlideData[] = [
     {
       title: "Mystic Mountains",
-      button: "Explore Component",
       src: "https://images.unsplash.com/photo-1494806812796-244fe51b774d?q=80&w=3534&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     },
     {
       title: "Urban Dreams",
-      button: "Explore Component",
-      src: "https://images.unsplash.com/photo-1518710843675-2540dd79065c?q=80&w=3387&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+      src: "https://images.unsplash.com/photo-1518710843675-2540dd79065c?q=80&w=3387&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8fGVufDB8fHx8fA%3D%3D",
     },
     {
       title: "Neon Nights",
-      button: "Explore Component",
       src: "https://images.unsplash.com/photo-1590041794748-2d8eb73a571c?q=80&w=3456&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     },
     {
       title: "Desert Whispers",
-      button: "Explore Component",
       src: "https://images.unsplash.com/photo-1679420437432-80cfbf88986c?q=80&w=3540&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     },
   ];
