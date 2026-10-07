@@ -4,8 +4,11 @@
  * 웹 오디오로 라이브 합성하므로 파일 에셋도, 네트워크도 쓰지 않는다:
  * 느리게 숨 쉬는 오픈 피치 드론(A2·E3·A3·E4 — 셋 없는 열린 온음이라
  * 흉내 내는 선율 없이 공간만 남는다) 위에 아주 낮게 깔린 대역 필터
- * 흰소음이 ASMR 같은 공기 질감을 만든다. 그 위에 A 단조 펜타토닉의
- * 아주 약한 멜로디가 3~7초에 한 번씩 긴 꼬리로 성기게 흩어진다.
+ * 흰소음이 ASMR 같은 공기 질감을 만든다. 그 위에 인터스텔라풍의
+ * 오르간 텍스처가 얹힌다 — A단조와 F장조를 여덟 박동마다 한 음만
+ * 바꾸며 오가는(E4↔F4) 최소 이동의 맥동, 감쇠 소음 IR의 컨볼버
+ * 리버(성가대 공간), 펄스와 같은 주기의 딜레이, 그리고 아주 느린
+ * 네 음 모티프(E5–C5–D5–A4). 전부 ASMR 속도와 레벨로다.
  * 마스터 게인 자체를 setTargetAtTime으로 밀어 올리고 떨어뜨리므로
  * 클릭 없이 페이드한다.
  *
@@ -21,13 +24,35 @@ type Listener = () => void;
 const MASTER_ON = 0.12;
 /** 페이드 시간 상수(초) — 올라가거나 가라앉는 속도. */
 const FADE_TAU = 0.45;
-/** A 단조 펜타토닉 — 열린 오픈 피치 드론과 안전하게 겹치는 음들만. */
-const SCALE = [440, 523.25, 587.33, 659.25, 783.99, 880]; // A4 C5 D5 E5 G5 A5
-/** 멜로디 한 음의 피크 게인 — 드론(≈0.49)보다 확실히 아래, "약간"의 수준. */
-const NOTE_PEAK = 0.22;
+/** 한 음의 피크 게인 — 펄스는 드론 아래에서 얇게, 모티프만 그보다 위에. */
+const PULSE_PEAK = 0.115;
+const MOTIF_PEAK = 0.2;
+/** 펄스 간격(초) — 오르간 맥동을 ASMR 속도로 (~70 BPM의박). */
+const PULSE_GAP = 0.85;
+/** 화음은 여덟 펄스마다 A단조 ↔ F장조로 — 공통음을 지키며 한 옥타브 아래 한 음만 바뀐다. */
+const PULSES_PER_CHORD = 8;
+/** Am: E4 A4 C5 A4 / F: F4 A4 C5 A4 — 윗선은 그대로, 밑만 E→F. */
+const FIGURES: number[][] = [
+  [329.63, 440, 523.25, 440],
+  [349.23, 440, 523.25, 440],
+];
+/** 느린 네 음 모티프 — [주파수, 다음 음까지 시작-to-시작 간격(초)]. */
+const MOTIF: number[][] = [
+  [659.25, 6.8], // E5
+  [523.25, 6.6], // C5
+  [587.33, 7], // D5
+  [440, 14], // A4 — 긴 숨, 처음으로
+];
+/** 오르간 색 — 기저음에 8도·12도 조화파를 아주 얇게 더한다. */
+const PARTIALS: number[][] = [
+  [1, 1],
+  [2, 0.22],
+  [3, 0.07],
+];
 
 let enabled = true;
-let scene: { ctx: AudioContext; master: GainNode } | null = null;
+let scene: { ctx: AudioContext; master: GainNode; music: GainNode } | null =
+  null;
 const listeners = new Set<Listener>();
 
 function notify() {
@@ -127,60 +152,115 @@ function buildAir(ctx: AudioContext, dest: AudioNode) {
   lfo.start();
 }
 
-/** 다음 멜로디 음을 부를 절대 시각. */
-let nextNoteAt = 0;
-/** 펜타토닉 위의 발판 — D5에서 출발해 한두 계단씩 옆으로만 움직인다. */
-let melIdx = 2;
+/** 다음 펄스·모티프 음을 부를 절대 시각, 그리고 펄스의 마디 위치. */
+let nextPulseAt = 0;
+let nextMotifAt = 0;
+let pulseIdx = 0;
+let motifIdx = 0;
 
-function nextFreq() {
-  const mag = Math.random() < 0.5 ? 1 : 2;
-  const step = Math.random() < 0.5 ? -mag : mag;
-  let i = melIdx + step;
-  if (i < 0) i = -i;
-  if (i >= SCALE.length) i = 2 * (SCALE.length - 1) - i;
-  melIdx = i;
-  return SCALE[melIdx];
-}
+type VoiceOpts = { level: number; attack: number; tail: number };
 
-/** 한 음 — 부드러운 인두, 긴 지수 꼬리, 미세하게 detune된 쌍둥이로 두께만 보탠다. */
-function playNote(ctx: AudioContext, master: GainNode, at: number) {
-  const freq = nextFreq();
-  const dur = 3.4 + Math.random() * 1.8; // 3.4 ~ 5.2초의 긴 꼬리
+/** 한 음 — 오르간 색 조화파, 부드러운 인두, 긴 지수 꼬리. */
+function voice(
+  ctx: AudioContext,
+  dest: AudioNode,
+  at: number,
+  freq: number,
+  o: VoiceOpts,
+) {
   const env = ctx.createGain();
   env.gain.setValueAtTime(0, at);
-  env.gain.linearRampToValueAtTime(NOTE_PEAK, at + 0.14);
-  env.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-
-  // 날카로운 상판을 눌러 우주 한가운데서 들려오는 소리처럼 부드럽게
+  env.gain.linearRampToValueAtTime(o.level, at + o.attack);
+  env.gain.exponentialRampToValueAtTime(0.0001, at + o.attack + o.tail);
   const tone = ctx.createBiquadFilter();
   tone.type = "lowpass";
-  tone.frequency.value = 2800;
+  tone.frequency.value = 2600; // 상판 정리 — ASMR은 날카로움을 못 견눈다
   env.connect(tone);
-  tone.connect(master);
-
-  for (const detune of [0, 7]) {
+  tone.connect(dest);
+  for (const [mul, lvl] of PARTIALS) {
     const osc = ctx.createOscillator();
     osc.type = "sine";
-    osc.frequency.value = freq;
-    osc.detune.value = detune;
+    osc.frequency.value = freq * mul;
+    osc.detune.value = mul === 1 ? 0 : mul === 2 ? 3 : -4;
     const g = ctx.createGain();
-    g.gain.value = detune === 0 ? 1 : 0.6;
+    g.gain.value = lvl;
     osc.connect(g);
     g.connect(env);
     osc.start(at);
-    osc.stop(at + dur + 0.1);
+    osc.stop(at + o.attack + o.tail + 0.1);
   }
 }
 
-/** 400ms마다 — 다음 음이 무대에 들어올 때쯤이면 정확한 절대 시각으로 예약한다. */
+/**
+ * 음악 버스 — 인터스텔라풍 "효과"들: 3초 감쇠 소음 IR로 만든 컨볼버
+ * 리버(성가대 공간)와 펄스와 같은 주기의 딜레이(한 박 뒤에 겹치는 캐논).
+ */
+function buildMusicBus(ctx: AudioContext, master: GainNode) {
+  const bus = ctx.createGain();
+  bus.gain.value = 0.9;
+  bus.connect(master);
+
+  const irLen = Math.floor(ctx.sampleRate * 3);
+  const ir = ctx.createBuffer(2, irLen, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = ir.getChannelData(ch);
+    for (let i = 0; i < irLen; i++) {
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / irLen, 2.4);
+    }
+  }
+  const verb = ctx.createConvolver();
+  verb.buffer = ir;
+  const verbOut = ctx.createGain();
+  verbOut.gain.value = 0.5;
+  bus.connect(verb);
+  verb.connect(verbOut);
+  verbOut.connect(master);
+
+  const echo = ctx.createDelay(2);
+  echo.delayTime.value = PULSE_GAP;
+  const echoFb = ctx.createGain();
+  echoFb.gain.value = 0.3;
+  const echoOut = ctx.createGain();
+  echoOut.gain.value = 0.3;
+  bus.connect(echo);
+  echo.connect(echoFb);
+  echoFb.connect(echo);
+  echo.connect(echoOut);
+  echoOut.connect(master);
+
+  return bus;
+}
+
+/** 400ms마다 — 펄스와 모티프를 정확한 절대 시각에 예약한다. */
 function melodyTick() {
   if (!scene || !enabled || scene.ctx.state !== "running") return;
-  const { ctx, master } = scene;
-  // 오래 침묵했다면(켜진 직후 등) 여유를 두고 다시 센다
-  if (nextNoteAt <= ctx.currentTime + 0.05) nextNoteAt = ctx.currentTime + 1.2;
-  if (nextNoteAt <= ctx.currentTime + 1.5) {
-    playNote(ctx, master, nextNoteAt);
-    nextNoteAt += 3.4 + Math.random() * 3.6; // 3.4 ~ 7초, 성기게
+  const { ctx, music } = scene;
+  const now = ctx.currentTime;
+
+  // 펄스 — 오래 침묵했다면(켜진 직후 등) 여유를 두고 다시 센다
+  if (nextPulseAt <= now + 0.05) nextPulseAt = now + 1.2;
+  while (nextPulseAt <= now + 1.5) {
+    const fig = FIGURES[Math.floor(pulseIdx / PULSES_PER_CHORD) % 2];
+    voice(ctx, music, nextPulseAt, fig[pulseIdx % 4], {
+      level: PULSE_PEAK,
+      attack: 0.07,
+      tail: 0.72,
+    });
+    nextPulseAt += PULSE_GAP;
+    pulseIdx++;
+  }
+
+  // 모티프 — 네 음 한 문장, 긴 숨을 두고 반복
+  if (nextMotifAt <= now + 0.05) nextMotifAt = now + 1.2;
+  if (nextMotifAt <= now + 1.5) {
+    const [freq, interval] = MOTIF[motifIdx];
+    voice(ctx, music, nextMotifAt, freq, {
+      level: MOTIF_PEAK,
+      attack: 0.7,
+      tail: Math.min(interval - 1, 5.5),
+    });
+    nextMotifAt += interval;
+    motifIdx = (motifIdx + 1) % MOTIF.length;
   }
 }
 
@@ -193,9 +273,11 @@ function ensure() {
   master.connect(ctx.destination);
   buildDrone(ctx, master);
   buildAir(ctx, master);
-  nextNoteAt = ctx.currentTime + 2.8; // 드론이 자리를 잡은 뒤 첫 음
+  const music = buildMusicBus(ctx, master);
+  nextPulseAt = ctx.currentTime + 2.4; // 드론이 자리를 잡은 뒤 첫 박동
+  nextMotifAt = ctx.currentTime + 8; // 모티프는 그보다 한참 뒤에
   window.setInterval(melodyTick, 400);
-  scene = { ctx, master };
+  scene = { ctx, master, music };
   return scene;
 }
 
