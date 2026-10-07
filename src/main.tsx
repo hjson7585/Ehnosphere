@@ -13,6 +13,7 @@ import "./index.css";
 const Landing = lazy(() => import("./pages/Landing.tsx"));
 const Timer = lazy(() => import("./pages/Timer.tsx"));
 const CleanView = lazy(() => import("./pages/CleanView.tsx"));
+const CarouselDemo = lazy(() => import("./components/CarouselDemo.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
@@ -125,6 +126,7 @@ createRoot(document.getElementById("root")!).render(
               <Route path="/" element={<Landing />} />
               <Route path="/timer" element={<Timer />} />
               <Route path="/clean-view" element={<CleanView />} />
+              <Route path="/carousel" element={<CarouselDemo />} />
               <Route
                 path="/auth"
                 element={<AuthPage redirectAfterAuth="/dashboard" />}
