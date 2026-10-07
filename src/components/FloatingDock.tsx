@@ -27,8 +27,8 @@ export type DockItem = {
 /** Three ways in — the sky on its own, the dial we open on, the countdown beside it. */
 const APP_ITEMS: DockItem[] = [
   {
-    title: "Sky",
-    href: "/sky",
+    title: "Clean View",
+    href: "/clean-view",
     icon: <IconGalaxy className="h-full w-full" strokeWidth={1.6} />,
   },
   {

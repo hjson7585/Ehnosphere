@@ -27,7 +27,7 @@ export default function Landing() {
         </motion.div>
       </main>
 
-      {/* Sky · Clock face · Timer — 하단 플로팅 독 */}
+      {/* Clean View · Clock face · Timer — 하단 플로팅 독 */}
       <AppDock />
     </motion.div>
   );

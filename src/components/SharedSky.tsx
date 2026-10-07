@@ -4,7 +4,7 @@ import { useLocation } from "react-router";
 /**
  * One sky, one screen: the Sombrero Galaxy and the shade over it live *above*
  * the routes (mounted once in main.tsx), so the Clock (`/`), the Timer
- * (`/timer`) and the Sky-only view (`/sky`) share a single continuous
+ * (`/timer`) and the Clean View (`/clean-view`) share a single continuous
  * backdrop. Stepping between them never tears the canvas down and rebuilds
  * it — the same stars keep turning — and the shade is written in exactly
  * one place, which is what makes the views read as one screen. Every other
@@ -14,7 +14,7 @@ import { useLocation } from "react-router";
 export default function SharedSky() {
   const { pathname } = useLocation();
   const path = pathname.replace(/\/+$/, "") || "/";
-  if (path !== "/" && path !== "/timer" && path !== "/sky") return null;
+  if (path !== "/" && path !== "/timer" && path !== "/clean-view") return null;
   return (
     <>
       <SombreroGalaxy centerX={0.5} centerY={0.5} />
