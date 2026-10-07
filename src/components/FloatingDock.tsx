@@ -1,5 +1,6 @@
 import {
   IconClock,
+  IconGalaxy,
   IconLayoutNavbarCollapse,
   IconStopwatch,
 } from "@tabler/icons-react";
@@ -23,8 +24,13 @@ export type DockItem = {
   active?: boolean;
 };
 
-/** The two faces of the app — the dial we open on, and the countdown beside it. */
+/** Three ways in — the sky on its own, the dial we open on, the countdown beside it. */
 const APP_ITEMS: DockItem[] = [
+  {
+    title: "Sky",
+    href: "/sky",
+    icon: <IconGalaxy className="h-full w-full" strokeWidth={1.6} />,
+  },
   {
     title: "Clock face",
     href: "/",
@@ -123,7 +129,7 @@ const FloatingDockMobile = ({
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        aria-label="두 버튼 펼치기"
+        aria-label="세 버튼 펼치기"
         className={iconClass(false)}
       >
         <IconLayoutNavbarCollapse className="h-5 w-5" />
