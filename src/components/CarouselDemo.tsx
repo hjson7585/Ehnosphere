@@ -114,25 +114,24 @@ const Slide = ({
 
 interface CarouselProps {
   slides: SlideData[];
+  onSlideSelect?: (index: number) => void;
 }
 
-const Carousel = ({ slides }: CarouselProps) => {
+const Carousel = ({ slides, onSlideSelect }: CarouselProps) => {
   const [current, setCurrent] = useState(0);
   const [hovered, setHovered] = useState(false);
   const wheelAcc = useRef(0);
   const wheelLock = useRef(0);
 
-  const step = (dir: number) => {
-    setCurrent((prev) => {
-      const next = prev + dir;
-      if (next < 0) return slides.length - 1;
-      if (next >= slides.length) return 0;
-      return next;
-    });
+  const notify = (index: number) => {
+    onSlideSelect?.(index);
   };
 
   const handleSlideClick = (index: number) => {
-    if (current !== index) setCurrent(index);
+    if (current !== index) {
+      setCurrent(index);
+      notify(index);
+    }
   };
 
   // 화살표 없음 — 스크롤이 누적 임계값을 넘길 때마다 한 칸씩 전환한다
@@ -145,7 +144,15 @@ const Carousel = ({ slides }: CarouselProps) => {
         : event.deltaX;
     wheelAcc.current += delta;
     if (Math.abs(wheelAcc.current) < 24) return;
-    step(wheelAcc.current > 0 ? 1 : -1);
+    const dir = wheelAcc.current > 0 ? 1 : -1;
+    const next = current + dir;
+    if (next < 0 || next >= slides.length) {
+      wheelAcc.current = 0;
+      wheelLock.current = now + 350;
+      return;
+    }
+    setCurrent(next);
+    notify(next);
     wheelAcc.current = 0;
     wheelLock.current = now + 350;
   };
@@ -179,7 +186,11 @@ const Carousel = ({ slides }: CarouselProps) => {
   );
 };
 
-export default function CarouselDemo() {
+export default function CarouselDemo({
+  onSlideSelect,
+}: {
+  onSlideSelect?: (index: number) => void;
+} = {}) {
   const sombreroSrc =
     typeof import.meta !== "undefined" && import.meta?.url
       ? new URL("@/assets/sombrero-galaxy.jpg", import.meta.url).href
@@ -208,7 +219,7 @@ export default function CarouselDemo() {
     // 하단 독과는 별개로 화면 좌측 사이드에 고정 — 스크롤/클릭 전환, 배경 전환용 엘리멘트
     <div className="pointer-events-none fixed top-1/2 left-[4vmin] z-40 w-[22vmin] -translate-y-1/2">
       <div className="pointer-events-auto">
-        <Carousel slides={slideData} />
+        <Carousel slides={slideData} onSlideSelect={onSlideSelect} />
       </div>
     </div>
   );
