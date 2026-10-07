@@ -1,5 +1,10 @@
-import { IconArrowNarrowRight } from "@tabler/icons-react";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type WheelEvent,
+} from "react";
 
 interface SlideData {
   title: string;
@@ -11,10 +16,17 @@ interface SlideProps {
   slide: SlideData;
   index: number;
   current: number;
+  hovered: boolean;
   handleSlideClick: (index: number) => void;
 }
 
-const Slide = ({ slide, index, current, handleSlideClick }: SlideProps) => {
+const Slide = ({
+  slide,
+  index,
+  current,
+  hovered,
+  handleSlideClick,
+}: SlideProps) => {
   const slideRef = useRef<HTMLLIElement>(null);
   const xRef = useRef(0);
   const yRef = useRef(0);
@@ -47,6 +59,9 @@ const Slide = ({ slide, index, current, handleSlideClick }: SlideProps) => {
   };
 
   const isSelected = current === index;
+  // 호버 중에만 선택 블록이 선명해지고, 그 외에는 전부 투명도를 올린다
+  const opacity = hovered ? (isSelected ? 1 : 0.4) : isSelected ? 0.5 : 0.2;
+
   const { src, button, title } = slide;
 
   return (
@@ -56,11 +71,10 @@ const Slide = ({ slide, index, current, handleSlideClick }: SlideProps) => {
         onClick={() => handleSlideClick(index)}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className="relative mb-[2vmin] flex h-[20vmin] w-[30vmin] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[1%] text-center text-white"
+        className="relative mb-[1.6vmin] flex h-[14vmin] w-[22vmin] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[1%] text-center text-white"
         style={{
-          // 선택된 슬라이드만 원래 크기·선명함, 나머지는 줄이고 투명하게
           transform: isSelected ? "scale(1)" : "scale(0.78)",
-          opacity: isSelected ? 1 : 0.4,
+          opacity,
           transformOrigin: "center",
           zIndex: isSelected ? 10 : 1,
           transition:
@@ -88,17 +102,15 @@ const Slide = ({ slide, index, current, handleSlideClick }: SlideProps) => {
         </div>
 
         <article
-          className={`relative p-[2vmin] transition-opacity duration-1000 ease-in-out ${
+          className={`relative p-[1.5vmin] transition-opacity duration-1000 ease-in-out ${
             isSelected ? "visible opacity-100" : "invisible opacity-0"
           }`}
         >
-          <h2 className="relative text-sm font-semibold md:text-base lg:text-lg">
-            {title}
-          </h2>
+          <h2 className="relative text-xs font-semibold md:text-sm">{title}</h2>
           <div className="flex justify-center">
             <button
               type="button"
-              className="mx-auto mt-3 flex h-9 w-fit items-center justify-center rounded-2xl border border-transparent bg-white px-4 text-xs text-black shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),0px_1px_0px_0px_rgba(25,28,33,0.02),0px_0px_0px_1px_rgba(25,28,33,0.08)] transition duration-200 hover:shadow-lg sm:text-sm"
+              className="mx-auto mt-2 flex h-8 w-fit items-center justify-center rounded-2xl border border-transparent bg-white px-3 text-[11px] text-black shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),0px_1px_0px_0px_rgba(25,28,33,0.02),0px_0px_0px_1px_rgba(25,28,33,0.08)] transition duration-200 hover:shadow-lg sm:text-xs"
             >
               {button}
             </button>
@@ -109,58 +121,51 @@ const Slide = ({ slide, index, current, handleSlideClick }: SlideProps) => {
   );
 };
 
-interface CarouselControlProps {
-  type: string;
-  title: string;
-  handleClick: () => void;
-}
-
-const CarouselControl = ({
-  type,
-  title,
-  handleClick,
-}: CarouselControlProps) => {
-  return (
-    <button
-      type="button"
-      className={`mx-2 flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-transparent bg-neutral-200 transition duration-200 focus:border-[#6D64F7] focus:outline-none hover:-translate-y-0.5 active:translate-y-0.5 ${
-        type === "previous" ? "rotate-180" : ""
-      }`}
-      title={title}
-      aria-label={title}
-      onClick={handleClick}
-    >
-      <IconArrowNarrowRight className="text-neutral-600" />
-    </button>
-  );
-};
-
 interface CarouselProps {
   slides: SlideData[];
 }
 
 const Carousel = ({ slides }: CarouselProps) => {
   const [current, setCurrent] = useState(0);
+  const [hovered, setHovered] = useState(false);
+  const wheelAcc = useRef(0);
+  const wheelLock = useRef(0);
 
-  const handlePreviousClick = () => {
-    const previous = current - 1;
-    setCurrent(previous < 0 ? slides.length - 1 : previous);
-  };
-
-  const handleNextClick = () => {
-    const next = current + 1;
-    setCurrent(next === slides.length ? 0 : next);
+  const step = (dir: number) => {
+    setCurrent((prev) => {
+      const next = prev + dir;
+      if (next < 0) return slides.length - 1;
+      if (next >= slides.length) return 0;
+      return next;
+    });
   };
 
   const handleSlideClick = (index: number) => {
-    if (current !== index) {
-      setCurrent(index);
-    }
+    if (current !== index) setCurrent(index);
+  };
+
+  // 화살표 없음 — 스크롤이 누적 임계값을 넘길 때마다 한 칸씩 전환한다
+  const handleWheel = (event: WheelEvent) => {
+    const now = Date.now();
+    if (now < wheelLock.current) return;
+    const delta =
+      Math.abs(event.deltaY) >= Math.abs(event.deltaX)
+        ? event.deltaY
+        : event.deltaX;
+    wheelAcc.current += delta;
+    if (Math.abs(wheelAcc.current) < 24) return;
+    step(wheelAcc.current > 0 ? 1 : -1);
+    wheelAcc.current = 0;
+    wheelLock.current = now + 350;
   };
 
   return (
-    <div className="relative h-[20vmin] w-[30vmin]">
-      {/* 세로 스택 — 슬롯 하나(20vmin + 2vmin 간격)씩 위로 밀어 올린다 */}
+    <div
+      className="relative h-[14vmin] w-[22vmin]"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onWheel={handleWheel}
+    >
       <ul
         aria-label="Slides"
         className="absolute top-0 left-0 flex flex-col transition-transform duration-1000 ease-in-out"
@@ -174,23 +179,11 @@ const Carousel = ({ slides }: CarouselProps) => {
             slide={slide}
             index={index}
             current={current}
+            hovered={hovered}
             handleSlideClick={handleSlideClick}
           />
         ))}
       </ul>
-
-      <div className="absolute top-[calc(100%+1rem)] flex w-full justify-center">
-        <CarouselControl
-          type="previous"
-          title="Go to previous slide"
-          handleClick={handlePreviousClick}
-        />
-        <CarouselControl
-          type="next"
-          title="Go to next slide"
-          handleClick={handleNextClick}
-        />
-      </div>
     </div>
   );
 };
@@ -220,8 +213,8 @@ export default function CarouselDemo() {
   ];
 
   return (
-    // 하단 독과는 별개로 화면 좌측 사이드에 고정 — 배경 전환용 엘리멘트
-    <div className="pointer-events-none fixed top-1/2 left-[4vmin] z-40 w-[30vmin] -translate-y-1/2">
+    // 하단 독과는 별개로 화면 좌측 사이드에 고정 — 스크롤/클릭 전환, 배경 전환용 엘리멘트
+    <div className="pointer-events-none fixed top-1/2 left-[4vmin] z-40 w-[22vmin] -translate-y-1/2">
       <div className="pointer-events-auto">
         <Carousel slides={slideData} />
       </div>
