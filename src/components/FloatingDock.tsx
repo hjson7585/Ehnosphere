@@ -1,4 +1,5 @@
 import {
+  IconCarouselVertical,
   IconClock,
   IconGalaxy,
   IconLayoutNavbarCollapse,
@@ -55,7 +56,7 @@ const APP_ITEMS: DockItem[] = [
 ];
 
 /** Bottom-of-screen dock shared by every view it navigates between.
- *  오른쪽 끝의 스피커는 이동이 아니라 액션 — 은하의 BGM을 켜고 끈다. */
+ *  스피커만 이동이 아니라 액션 — 은하의 BGM을 켜고 끈다. */
 export function AppDock() {
   const { pathname } = useLocation();
   const soundOn = useSyncExternalStore(subscribeAmbient, getAmbientOn);
@@ -69,6 +70,14 @@ export function AppDock() {
         <IconVolume2 className="h-full w-full" strokeWidth={1.6} />
       ) : (
         <IconVolumeOff className="h-full w-full" strokeWidth={1.6} />
+      ),
+    },
+    {
+      title: "Carousel",
+      href: "/carousel",
+      active: pathname === "/carousel",
+      icon: (
+        <IconCarouselVertical className="h-full w-full" strokeWidth={1.6} />
       ),
     },
   ];
@@ -166,7 +175,7 @@ const FloatingDockMobile = ({
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        aria-label="네 버튼 펼치기"
+        aria-label="다섯 버튼 펼치기"
         className={iconClass(false)}
       >
         <IconLayoutNavbarCollapse className="h-5 w-5" />
