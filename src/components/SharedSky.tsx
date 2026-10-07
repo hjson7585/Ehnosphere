@@ -47,10 +47,8 @@ export default function SharedSky() {
             loading="eager"
             decoding="sync"
           />
-          {/* deep-turquoise to white foam tonal wash, lifted when the carousel is hovered */}
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(0,95,115,0.45)_0%,rgba(10,147,150,0.15)_55%,rgba(148,210,189,0.15)_100%)]" />
-          {/* soft vignette to seat the foreground */}
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(3,4,9,0)_0%,rgba(3,4,9,0.18)_60%,rgba(3,4,9,0.35)_100%)]" />
+          {/* subtle darkening at the very edges only — keeps the foreground readable */}
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(3,4,9,0)_0%,rgba(3,4,9,0.18)_62%,rgba(3,4,9,0.32)_100%)]" />
         </div>
       )}
 
