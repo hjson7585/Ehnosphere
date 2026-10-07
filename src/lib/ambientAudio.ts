@@ -4,11 +4,11 @@
  * 웹 오디오로 라이브 합성하므로 파일 에셋도, 네트워크도 쓰지 않는다:
  * 느리게 숨 쉬는 오픈 피치 드론(A2·E3·A3·E4 — 셋 없는 열린 온음이라
  * 흉내 내는 선율 없이 공간만 남는다) 위에 아주 낮게 깔린 대역 필터
- * 흰소음이 ASMR 같은 공기 질감을 만든다. 그 위에 인터스텔라풍의
- * 오르간 텍스처가 얹힌다 — A단조와 F장조를 여덟 박동마다 한 음만
- * 바꾸며 오가는(E4↔F4) 최소 이동의 맥동, 감쇠 소음 IR의 컨볼버
- * 리버(성가대 공간), 펄스와 같은 주기의 딜레이, 그리고 아주 느린
- * 네 음 모티프(E5–C5–D5–A4). 전부 ASMR 속도와 레벨로다.
+ * 흰소음이 ASMR 같은 공기 질감을 만든다. 우주의 웅장함은 낮게 깔린
+ * 서브 베이스와, Am add9 ↔ Fmaj9를 약 24초에 한 번씩 8초에 걸쳐
+ * 데워 지나가는 폭넓은 코드 패드가 만든다. 몽환감은 4.5초의 컨볼버
+ * 리버, 천천히 차단 주파수가 흐르는 우주 바람, 그리고 4.5~9초마다
+ * 피어나는 높은 별빛 차임이 만든다. 전부 ASMR 속도와 레벨로다.
  * 마스터 게인 자체를 setTargetAtTime으로 밀어 올리고 떨어뜨리므로
  * 클릭 없이 페이드한다.
  *
@@ -24,26 +24,21 @@ type Listener = () => void;
 const MASTER_ON = 0.12;
 /** 페이드 시간 상수(초) — 올라가거나 가라앉는 속도. */
 const FADE_TAU = 0.45;
-/** 한 음의 피크 게인 — 펄스는 드론 아래에서 얇게, 모티프만 그보다 위에. */
-const PULSE_PEAK = 0.115;
-const MOTIF_PEAK = 0.2;
-/** 펄스 간격(초) — 오르간 맥동을 ASMR 속도로 (~70 BPM의박). */
-const PULSE_GAP = 0.85;
-/** 화음은 여덟 펄스마다 A단조 ↔ F장조로 — 공통음을 지키며 한 옥타브 아래 한 음만 바뀐다. */
-const PULSES_PER_CHORD = 8;
-/** Am: E4 A4 C5 A4 / F: F4 A4 C5 A4 — 윗선은 그대로, 밑만 E→F. */
-const FIGURES: number[][] = [
-  [329.63, 440, 523.25, 440],
-  [349.23, 440, 523.25, 440],
+/** 별빛 차임의 피크 게인 — 패드 아래에서 아주 얇게 빛난다. */
+const SPARKLE_PEAK = 0.075;
+/** 코드 전환 주기(초) — 약 24초마다 한 번, 약 8초에 걸쳐 데워 지나간다. */
+const CHORD_HOLD = 24;
+/** 폭넓은 두 코드 — Am add9 ↔ Fmaj9 (A3·E5가 공통음으로 길게 이어진다). */
+const CHORDS: number[][] = [
+  [110, 164.81, 220, 493.88, 659.25], // A2 E3 A3 B4 E5
+  [87.31, 130.81, 220, 659.25, 783.99], // F2 C3 A3 E5 G5
 ];
-/** 느린 네 음 모티프 — [주파수, 다음 음까지 시작-to-시작 간격(초)]. */
-const MOTIF: number[][] = [
-  [659.25, 6.8], // E5
-  [523.25, 6.6], // C5
-  [587.33, 7], // D5
-  [440, 14], // A4 — 긴 숨, 처음으로
-];
-/** 오르간 색 — 기저음에 8도·12도 조화파를 아주 얇게 더한다. */
+/** 코드 음의 상대 볼륨 — 낮은 음일수록 얇게 눌러 무게를 흐린다. */
+const CHORD_LEVELS = [0.5, 0.4, 0.3, 0.25, 0.2];
+const CHORD_GAIN = 0.3;
+/** 별빛이 피어나는 높은 음들 — A5 C6 E6 G6 B6. */
+const SPARKLES = [880, 1046.5, 1318.5, 1568, 1975.5];
+/** 차임 색 — 기저음에 8도·12도 조화파를 아주 얇게 더한다. */
 const PARTIALS: number[][] = [
   [1, 1],
   [2, 0.22],
@@ -85,38 +80,53 @@ function noiseLoop(ctx: AudioContext) {
   return buffer;
 }
 
-/** 느리게 숨 쉬는 오픈 피치 드론 — 네 음이 미세하게 detune되어 아주 천천히 마주 간다. */
-function buildDrone(ctx: AudioContext, dest: AudioNode) {
-  const pad = ctx.createGain();
-  pad.gain.value = 0.5;
-  pad.connect(dest);
+/** 우주의 무게 — 55Hz 서브는 두 코드 아래에서 언제나 같은 자리에 깔린다. */
+function buildSub(ctx: AudioContext, dest: AudioNode) {
+  const g = ctx.createGain();
+  g.gain.value = 0.16;
+  g.connect(dest);
+  const osc = ctx.createOscillator();
+  osc.type = "sine";
+  osc.frequency.value = 55; // A1
+  osc.connect(g);
+  osc.start();
+}
 
-  const voices: Array<[freq: number, level: number, detune: number]> = [
-    [110, 0.45, -3], // A2
-    [164.81, 0.3, 2], // E3
-    [220, 0.2, -2], // A3
-    [329.63, 0.1, 4], // E4
-  ];
-  for (const [freq, level, detune] of voices) {
-    const osc = ctx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.value = freq;
-    osc.detune.value = detune;
-    const g = ctx.createGain();
-    g.gain.value = level;
-    osc.connect(g);
-    g.connect(pad);
-    osc.start();
-  }
-
-  // 호흡 — ~17초에 한 번 오르내리는 진폭 (중앙값 0.5 위에서 ±0.14)
+/**
+ * 웅장함의 본체 — Am add9 ↔ Fmaj9 폭넓은 코드 패드. 두 코드의
+ * 오실레이터는 한 번 켜두고, 전환은 gain이 데워지는 크로스페이스로만
+ * 한다. 미세한 detune이 합이 두께와 두둥실함을 만든다.
+ */
+function buildPad(ctx: AudioContext, dest: AudioNode) {
+  // 아주 느린 호흡 — 패드가 약 17초 주기로 조금씩 오르내린다
+  const breath = ctx.createGain();
+  breath.gain.value = 1;
+  breath.connect(dest);
   const lfo = ctx.createOscillator();
-  lfo.frequency.value = 0.06;
+  lfo.frequency.value = 0.058;
   const depth = ctx.createGain();
-  depth.gain.value = 0.14;
+  depth.gain.value = 0.12;
   lfo.connect(depth);
-  depth.connect(pad.gain);
+  depth.connect(breath.gain);
   lfo.start();
+
+  return CHORDS.map((chord, ci) => {
+    const g = ctx.createGain();
+    g.gain.value = ci === 0 ? CHORD_GAIN : 0;
+    g.connect(breath);
+    chord.forEach((freq, vi) => {
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      osc.detune.value = ((vi % 3) - 1) * 5; // 미세 detune이 두께를 만든다
+      const vg = ctx.createGain();
+      vg.gain.value = CHORD_LEVELS[vi];
+      osc.connect(vg);
+      vg.connect(g);
+      osc.start();
+    });
+    return g;
+  });
 }
 
 /** 아주 낮은 대역 필터 흰소음 — 솜브레로의 공기층 같은 ASMR 질감. */
@@ -150,17 +160,26 @@ function buildAir(ctx: AudioContext, dest: AudioNode) {
   lfo.connect(depth);
   depth.connect(air.gain);
   lfo.start();
+
+  // 우주 바람 — 차단 주파수가 약 42초에 한 번 오르내리며 흐른다
+  const drift = ctx.createOscillator();
+  drift.frequency.value = 0.024;
+  const driftDepth = ctx.createGain();
+  driftDepth.gain.value = 260;
+  drift.connect(driftDepth);
+  driftDepth.connect(lp.frequency);
+  drift.start();
 }
 
-/** 다음 펄스·모티프 음을 부를 절대 시각, 그리고 펄스의 마디 위치. */
-let nextPulseAt = 0;
-let nextMotifAt = 0;
-let pulseIdx = 0;
-let motifIdx = 0;
+/** 다음 별빛·코드 전환을 부를 절대 시각, 그리고 지금 켜진 코드. */
+let nextSparkleAt = 0;
+let nextChordAt = 0;
+let chordIdx = 0;
+let chordGains: GainNode[] = [];
 
 type VoiceOpts = { level: number; attack: number; tail: number };
 
-/** 한 음 — 오르간 색 조화파, 부드러운 인두, 긴 지수 꼬리. */
+/** 별빛 한 알 — 조화파의 두께, 부드러운 인두, 긴 지수 꼬리. */
 function voice(
   ctx: AudioContext,
   dest: AudioNode,
@@ -192,15 +211,15 @@ function voice(
 }
 
 /**
- * 음악 버스 — 인터스텔라풍 "효과"들: 3초 감쇠 소음 IR로 만든 컨볼버
- * 리버(성가대 공간)와 펄스와 같은 주기의 딜레이(한 박 뒤에 겹치는 캐논).
+ * 음악 버스 — 몽환의 "효과"들: 4.5초 감쇠 소음 IR로 만든 컨볼버
+ * 리버(성가대 공간)와 별빛을 한 박 늦게 반향하는 느린 딜레이.
  */
 function buildMusicBus(ctx: AudioContext, master: GainNode) {
   const bus = ctx.createGain();
   bus.gain.value = 0.9;
   bus.connect(master);
 
-  const irLen = Math.floor(ctx.sampleRate * 3);
+  const irLen = Math.floor(ctx.sampleRate * 4.5);
   const ir = ctx.createBuffer(2, irLen, ctx.sampleRate);
   for (let ch = 0; ch < 2; ch++) {
     const d = ir.getChannelData(ch);
@@ -211,13 +230,13 @@ function buildMusicBus(ctx: AudioContext, master: GainNode) {
   const verb = ctx.createConvolver();
   verb.buffer = ir;
   const verbOut = ctx.createGain();
-  verbOut.gain.value = 0.5;
+  verbOut.gain.value = 0.58;
   bus.connect(verb);
   verb.connect(verbOut);
   verbOut.connect(master);
 
   const echo = ctx.createDelay(2);
-  echo.delayTime.value = PULSE_GAP;
+  echo.delayTime.value = 1.1; // 별빛이 한 번쯤 떨어질 만큼 느린 딜레이
   const echoFb = ctx.createGain();
   echoFb.gain.value = 0.3;
   const echoOut = ctx.createGain();
@@ -231,36 +250,33 @@ function buildMusicBus(ctx: AudioContext, master: GainNode) {
   return bus;
 }
 
-/** 400ms마다 — 펄스와 모티프를 정확한 절대 시각에 예약한다. */
+/** 400ms마다 — 코드 전환과 별빛을 정확한 절대 시각에 예약한다. */
 function melodyTick() {
   if (!scene || !enabled || scene.ctx.state !== "running") return;
   const { ctx, music } = scene;
   const now = ctx.currentTime;
 
-  // 펄스 — 오래 침묵했다면(켜진 직후 등) 여유를 두고 다시 센다
-  if (nextPulseAt <= now + 0.05) nextPulseAt = now + 1.2;
-  while (nextPulseAt <= now + 1.5) {
-    const fig = FIGURES[Math.floor(pulseIdx / PULSES_PER_CHORD) % 2];
-    voice(ctx, music, nextPulseAt, fig[pulseIdx % 4], {
-      level: PULSE_PEAK,
-      attack: 0.07,
-      tail: 0.72,
-    });
-    nextPulseAt += PULSE_GAP;
-    pulseIdx++;
+  // 코드 전환 — 약 8초에 걸쳐 데워 지나가는 크로스페이스 (소리 없이)
+  if (nextChordAt <= now + 0.05) nextChordAt = now + 1.2;
+  if (nextChordAt <= now + 1.5) {
+    chordIdx = (chordIdx + 1) % CHORDS.length;
+    const prev = chordGains[(chordIdx + CHORDS.length - 1) % CHORDS.length];
+    const next = chordGains[chordIdx];
+    prev.gain.setTargetAtTime(0, nextChordAt, 2.8);
+    next.gain.setTargetAtTime(CHORD_GAIN, nextChordAt, 2.8);
+    nextChordAt += CHORD_HOLD;
   }
 
-  // 모티프 — 네 음 한 문장, 긴 숨을 두고 반복
-  if (nextMotifAt <= now + 0.05) nextMotifAt = now + 1.2;
-  if (nextMotifAt <= now + 1.5) {
-    const [freq, interval] = MOTIF[motifIdx];
-    voice(ctx, music, nextMotifAt, freq, {
-      level: MOTIF_PEAK,
-      attack: 0.7,
-      tail: Math.min(interval - 1, 5.5),
+  // 별빛 — 4.5 ~ 9초마다 무작위 높은 음 하나가 피었다가 사그라진다
+  if (nextSparkleAt <= now + 0.05) nextSparkleAt = now + 1.2;
+  if (nextSparkleAt <= now + 1.5) {
+    const freq = SPARKLES[Math.floor(Math.random() * SPARKLES.length)];
+    voice(ctx, music, nextSparkleAt, freq, {
+      level: SPARKLE_PEAK,
+      attack: 0.45,
+      tail: 6.5,
     });
-    nextMotifAt += interval;
-    motifIdx = (motifIdx + 1) % MOTIF.length;
+    nextSparkleAt += 4.5 + Math.random() * 4.5;
   }
 }
 
@@ -271,11 +287,12 @@ function ensure() {
   const master = ctx.createGain();
   master.gain.value = 0;
   master.connect(ctx.destination);
-  buildDrone(ctx, master);
+  buildSub(ctx, master);
+  chordGains = buildPad(ctx, master);
   buildAir(ctx, master);
   const music = buildMusicBus(ctx, master);
-  nextPulseAt = ctx.currentTime + 2.4; // 드론이 자리를 잡은 뒤 첫 박동
-  nextMotifAt = ctx.currentTime + 8; // 모티프는 그보다 한참 뒤에
+  nextSparkleAt = ctx.currentTime + 6; // 자리 잡은 뒤 첫 별빛
+  nextChordAt = ctx.currentTime + CHORD_HOLD; // 첫 코드는 이미 켜져 있다
   window.setInterval(melodyTick, 400);
   scene = { ctx, master, music };
   return scene;
