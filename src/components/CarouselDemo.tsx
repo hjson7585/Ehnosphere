@@ -100,7 +100,7 @@ const Slide = ({
           )}
         </div>
 
-              <article
+        <article
           className={`relative p-[1.5vmin] transition-opacity duration-1000 ease-in-out ${
             isSelected ? "visible opacity-100" : "invisible opacity-0"
           }`}
@@ -180,10 +180,15 @@ const Carousel = ({ slides }: CarouselProps) => {
 };
 
 export default function CarouselDemo() {
+  const sombreroSrc =
+    typeof import.meta !== "undefined" && import.meta?.url
+      ? new URL("@/assets/sombrero-galaxy.jpg", import.meta.url).href
+      : "/assets/sombrero-galaxy.jpg";
+
   const slideData: SlideData[] = [
     {
-      title: "Mystic Mountains",
-      src: "https://images.unsplash.com/photo-1494806812796-244fe51b774d?q=80&w=3534&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+      title: "Sombrero Galaxy",
+      src: sombreroSrc,
     },
     {
       title: "Urban Dreams",
