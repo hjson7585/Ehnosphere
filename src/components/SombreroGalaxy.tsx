@@ -9,8 +9,8 @@ import sombreroPhotoLight from "@/assets/sombrero-galaxy-2048.jpg";
  * The galaxy itself is the Hubble Space Telescope mosaic (NASA/ESA, 2003),
  * drawn additively so its black sky stays transparent over our starfield.
  * The photograph itself never turns — only what orbits it does: stars and
- * dust revolve through the brim, a soft light travels the disk, and the
- * ring of light and shadow sweeps the dust lane around the core. The haze
+ * dust revolve through the brim, a soft light travels the disk, and a ring
+ * of light sweeps the dust lane around the core. The haze
  * beyond the brim circles the nucleus more slowly still, and the whole
  * thing breathes in brightness. If the photo ever fails
  * to load, it falls back to a fully drawn disk — particles, luminous bulge
@@ -52,7 +52,7 @@ export const BASE_PERIOD = 200;
  */
 const NEBULA_SPIN = 0.35;
 /**
- * The ring around the core — the light and shadow riding the dust lane —
+ * The ring around the core — the light riding the dust lane —
  * has its own clock at RING_SPIN of the disk's rate. The plate underneath
  * does not turn: only this travels, circling the nucleus while the
  * photograph holds still.
@@ -711,15 +711,16 @@ export default function SombreroGalaxy({
     }
 
     /**
-     * Light and shadow travelling around the dust lane — the black band that
-     * gives the Sombrero its brim, and the ring you can actually see.
+     * Light travelling around the dust lane — the ring you can actually see.
      *
      * The lane is drawn as a flat ellipse a little tighter than the brim the
      * sheen rides, at ≈ cos 78°: the same inclination the drawn disk uses, so
      * the sweep tracks the photograph's own band instead of floating over it.
-     * Two lobes orbit it in opposite phase — a warm glow set with `lighter`,
-     * a soft darkening set with `source-over`. A shadow can only subtract, so
-     * that is the whole trick; no clipping, no extra layer.
+     * A warm glow orbits it set with `lighter`. The dark lobe that used to
+     * counter-orbit opposite it — a `source-over` black half of the same
+     * ring — is gone: over the top of the orbit it hung as a smear of black
+     * gas right above the nucleus, and the lane reads as travelling from the
+     * gleam alone.
      *
      * Its own slow clock (RING_SPIN) keeps it from simply riding along with
      * the disk: it reads as weather passing over the lane rather than as one
@@ -735,16 +736,7 @@ export default function SombreroGalaxy({
       ctx.translate(cx, cy);
       ctx.scale(rx, ry);
 
-      // the half of the band held in shadow
-      ctx.globalCompositeOperation = "source-over";
-      const shade = ctx.createRadialGradient(-ux, -uy, 0, -ux, -uy, 0.5);
-      shade.addColorStop(0, "rgba(1, 2, 6, 0.26)");
-      shade.addColorStop(0.5, "rgba(1, 2, 6, 0.12)");
-      shade.addColorStop(1, "rgba(1, 2, 6, 0)");
-      ctx.fillStyle = shade;
-      ctx.fillRect(-1.2, -1.2, 2.4, 2.4);
-
-      // the other half, catching a low warm gleam
+      // a low warm gleam travelling the band
       ctx.globalCompositeOperation = "lighter";
       const gleam = ctx.createRadialGradient(ux, uy, 0, ux, uy, 0.5);
       gleam.addColorStop(0, "rgba(255, 226, 184, 0.1)");
@@ -917,7 +909,7 @@ export default function SombreroGalaxy({
       if (photoReady) {
         drawPhoto(); // real Hubble M104, held still
         drawHalo(); // warm bloom breathing over the photograph
-        drawRingSweep(); // light and shadow travelling the dust lane
+        drawRingSweep(); // light travelling the dust lane
         drawSheen(); // travelling light — the slow rotation
         drawDisk(false); // stars revolving through the brim
         drawDust(false);
