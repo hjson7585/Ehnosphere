@@ -1,5 +1,4 @@
 import { IconArrowNarrowRight } from "@tabler/icons-react";
-import { AppDock } from "@/components/FloatingDock";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 
 interface SlideData {
@@ -221,13 +220,11 @@ export default function CarouselDemo() {
   ];
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-background">
-      {/* 화면 좌측에 세로 방향으로 세운 슬라이드 스택 */}
-      <div className="absolute top-1/2 left-[4vmin] w-[30vmin] -translate-y-1/2">
+    // 하단 독과는 별개로 화면 좌측 사이드에 고정 — 배경 전환용 엘리멘트
+    <div className="pointer-events-none fixed top-1/2 left-[4vmin] z-40 w-[30vmin] -translate-y-1/2">
+      <div className="pointer-events-auto">
         <Carousel slides={slideData} />
       </div>
-
-      <AppDock />
     </div>
   );
 }

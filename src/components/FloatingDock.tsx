@@ -1,5 +1,4 @@
 import {
-  IconCarouselVertical,
   IconClock,
   IconGalaxy,
   IconLayoutNavbarCollapse,
@@ -70,14 +69,6 @@ export function AppDock() {
         <IconVolume2 className="h-full w-full" strokeWidth={1.6} />
       ) : (
         <IconVolumeOff className="h-full w-full" strokeWidth={1.6} />
-      ),
-    },
-    {
-      title: "Carousel",
-      href: "/carousel",
-      active: pathname === "/carousel",
-      icon: (
-        <IconCarouselVertical className="h-full w-full" strokeWidth={1.6} />
       ),
     },
   ];
@@ -175,7 +166,7 @@ const FloatingDockMobile = ({
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        aria-label="다섯 버튼 펼치기"
+        aria-label="네 버튼 펼치기"
         className={iconClass(false)}
       >
         <IconLayoutNavbarCollapse className="h-5 w-5" />

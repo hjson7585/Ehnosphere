@@ -1,4 +1,5 @@
 import SombreroGalaxy from "@/components/SombreroGalaxy";
+import CarouselDemo from "@/components/CarouselDemo";
 import { useLocation } from "react-router";
 
 /**
@@ -20,6 +21,8 @@ export default function SharedSky() {
       <SombreroGalaxy centerX={0.5} centerY={0.5} />
       {/* a whisper of shade at the centre — enough to seat the foreground, never enough to hide the galaxy */}
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_center,rgba(3,4,9,0.2)_0%,rgba(3,4,9,0.07)_36%,rgba(3,4,9,0)_68%)]" />
+      {/* 하단 독과 별개인 좌측 사이드 캐러셀 — 배경 전환용 */}
+      <CarouselDemo />
     </>
   );
 }
