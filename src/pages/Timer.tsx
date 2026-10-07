@@ -8,6 +8,10 @@ import { toast } from "sonner";
 const RING_R = 168;
 const RING_C = 2 * Math.PI * RING_R;
 
+/** 큰 숫자의 글꼴 — 분·초 칸과 콜론이 같은 크기로 이어지도록 한 곳에 둔다. */
+const BIG_TEXT =
+  "font-sans font-extralight text-glow text-[clamp(2.25rem,10vmin,4.75rem)] leading-none tabular-nums";
+
 function format(ms: number) {
   const total = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(total / 60);
@@ -26,10 +30,11 @@ export default function Timer() {
   const [endsAt, setEndsAt] = useState(0);
   const [done, setDone] = useState(false);
   const fired = useRef(false);
-  // 큰 숫자 직접 편집 — 포커스하면 숫자가 오른쪽에서 쌓이고 콜론은 고정이다
+  // 큰 숫자 직접 편집 — 분·초가 각각의 칸이고 콜론만 고정이다
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("0500");
-  const draftBase = useRef("0500");
+  const [draftM, setDraftM] = useState("05");
+  const [draftS, setDraftS] = useState("00");
+  const draftBase = useRef({ m: "05", s: "00" });
 
   // Drift-free countdown: the deadline is a timestamp, not a decrement.
   useEffect(() => {
@@ -83,43 +88,48 @@ export default function Timer() {
     setRemaining(ms);
   };
 
-  /** 큰 숫자에 포커스 — 남은 시간을 네 자리(mmss)로 옮겨 적는다. */
+  /** 분/초 칸에 포커스 — 남은 시간을 두 칸에 옮겨 적는다 (이미 편집 중이면 유지). */
   const startEdit = () => {
-    if (running) return;
+    if (running || editing) return;
     const total = Math.max(0, Math.ceil(remaining / 1000));
-    const mm = String(Math.floor(total / 60)).padStart(2, "0");
-    const ss = String(total % 60).padStart(2, "0");
-    const base = `${mm}${ss}`;
-    draftBase.current = base;
-    setDraft(base);
+    const m = String(Math.floor(total / 60)).padStart(2, "0");
+    const s = String(total % 60).padStart(2, "0");
+    draftBase.current = { m, s };
+    setDraftM(m);
+    setDraftS(s);
     setEditing(true);
   };
 
-  /** 확정 — 값이 그대로면 그냥 닫고, 1초 미만이면 취소한다. */
+  /** 확정 — 분·초를 합쳐 갱신. 값이 그대로면 그냥 닫고, 1초 미만이면 취소. */
   const commitEdit = () => {
     if (!editing) return; // 편집이 아닐 땐 (실행 중 읽기 전용 포커스 등) 아무 것도 하지 않는다
-    const padded = draft.padStart(4, "0");
-    const total = Math.min(
-      5999, // 99:59 — 큰 숫자는 네 자리라 그 이상은 쓰지 않는다
-      Number(padded.slice(0, 2)) * 60 + Number(padded.slice(2)),
-    );
-    if (total < 1) {
+    const m = Number(draftM.padStart(2, "0"));
+    const s = Number(draftS.padStart(2, "0"));
+    const total = Math.min(5999, m * 60 + s); // 최대 99:59
+    const changed =
+      draftM !== draftBase.current.m || draftS !== draftBase.current.s;
+    if (total < 1 || !changed) {
       setEditing(false);
       return;
     }
-    if (draft !== draftBase.current) pick(total * 1000);
+    pick(total * 1000);
     setEditing(false);
   };
 
-  const cancelEdit = () => setEditing(false);
+  /** 취소 — 스케치를 원래대로 되돌리고 닫는다. 되돌려야 Esc 직후 재진입하는
+   *  블러 확정도 같은 값을 다시 읽어 아무 일도 일어나지 않는다. */
+  const cancelEdit = () => {
+    setDraftM(draftBase.current.m);
+    setDraftS(draftBase.current.s);
+    setEditing(false);
+  };
 
   const progress = duration > 0 ? 1 - remaining / duration : 0;
 
-  // 편집 중엔 스케치한 네 자리, 아닐 땐 실제 남은 시간
-  const padded = draft.padStart(4, "0");
-  const shown = editing
-    ? `${padded.slice(0, 2)}:${padded.slice(2)}`
-    : format(remaining);
+  // 편집 중엔 스케치한 두 칸, 아닐 땐 실제 남은 시간
+  const [viewM, viewS] = format(remaining).split(":");
+  const mmVal = editing ? draftM : viewM;
+  const ssVal = editing ? draftS : viewS;
 
   return (
     <motion.div
@@ -167,36 +177,81 @@ export default function Timer() {
           </svg>
 
           <div className="relative flex flex-col items-center gap-2">
-            <input
-              aria-label="타이머 시간 설정"
-              inputMode="numeric"
-              readOnly={running}
-              value={shown}
-              style={{ width: `${shown.length}ch` }}
-              onFocus={(e) => {
-                startEdit();
-                e.target.select();
+            {/* 분·초 두 칸 — 콜론만 고정이고, 각 칸을 따로 타이핑한다 */}
+            <div
+              className={cn(
+                "flex items-center justify-center",
+                done && "animate-pulse",
+              )}
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                  commitEdit();
+                }
               }}
-              onChange={(e) =>
-                setDraft(e.target.value.replace(/[^\d]/g, "").slice(0, 4))
-              }
-              onBlur={commitEdit}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
                   commitEdit();
+                  (e.target as HTMLElement).blur();
                 } else if (e.key === "Escape") {
                   e.preventDefault();
                   cancelEdit();
+                  (e.target as HTMLElement).blur();
                 }
               }}
-              className={cn(
-                "border-0 bg-transparent p-0 text-center caret-primary outline-none tabular-nums",
-                "font-sans font-extralight text-glow text-[clamp(2.25rem,10vmin,4.75rem)] leading-none text-foreground",
-                running ? "cursor-default" : "cursor-text",
-                done && "animate-pulse text-primary",
-              )}
-            />
+            >
+              <input
+                aria-label="분"
+                inputMode="numeric"
+                maxLength={2}
+                readOnly={running}
+                value={mmVal}
+                style={{ width: "2ch" }}
+                onFocus={(e) => {
+                  startEdit();
+                  e.target.select();
+                }}
+                onChange={(e) =>
+                  setDraftM(e.target.value.replace(/[^\d]/g, "").slice(0, 2))
+                }
+                className={cn(
+                  BIG_TEXT,
+                  "border-0 bg-transparent p-0 text-center caret-primary outline-none",
+                  running ? "cursor-default" : "cursor-text",
+                  done ? "text-primary" : "text-foreground",
+                )}
+              />
+              <span
+                aria-hidden="true"
+                className={cn(
+                  BIG_TEXT,
+                  done ? "text-primary" : "text-foreground",
+                )}
+              >
+                :
+              </span>
+              <input
+                aria-label="초"
+                inputMode="numeric"
+                maxLength={2}
+                readOnly={running}
+                value={ssVal}
+                style={{ width: "2ch" }}
+                onFocus={(e) => {
+                  startEdit();
+                  e.target.select();
+                }}
+                onChange={(e) =>
+                  setDraftS(e.target.value.replace(/[^\d]/g, "").slice(0, 2))
+                }
+                className={cn(
+                  BIG_TEXT,
+                  "border-0 bg-transparent p-0 text-center caret-primary outline-none",
+                  running ? "cursor-default" : "cursor-text",
+                  done ? "text-primary" : "text-foreground",
+                )}
+              />
+            </div>
             {/* '측정 중'은 아예 없앴다 — 시간이 흐르는 동안 화면엔 숫자만 남는다 */}
             <span className="flex h-4 items-center justify-center text-xs tracking-[0.3em] text-muted-foreground">
               {running ? "" : done ? "완료" : "정지"}
