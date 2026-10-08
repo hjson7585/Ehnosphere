@@ -26,11 +26,13 @@ import { useLocation } from "react-router";
  * looks perpendicular at the water instead of skimming it at an angle, so
  * the swell no longer shears across the frame. The 1440p source is scaled
  * to 1080p, sharpened and graded to the still's teal, then closed with a
- * frame-quantised reversed-tail crossfade whose loop seam is smaller than
- * an ordinary frame step, so the repeat never shows a cut.
+ * frame-quantised forward crossfade: the final 1.4s and the head play
+ * toward each other at 1x (nothing reverses), the last frame lands exactly
+ * on the source frame before the first, so the loop wraps on ordinary
+ * adjacent frames and waves keep breaking through the restart.
  * Both are cache-busted so a swap can never be served stale. */
 const WAVE_STILL = "/assets/ocean-wave.jpg?v=20261008";
-const WAVE_CLIP = "/assets/ocean-wave.mp4?v=20261010";
+const WAVE_CLIP = "/assets/ocean-wave.mp4?v=20261011";
 
 export default function SharedSky() {
   const { pathname } = useLocation();
