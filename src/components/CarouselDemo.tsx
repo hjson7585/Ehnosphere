@@ -226,9 +226,10 @@ export default function CarouselDemo({
       ? new URL("@/assets/sombrero-galaxy.jpg", import.meta.url).href
       : "/assets/sombrero-galaxy.jpg";
 
-  // Same asset (and same cache-busting query) as the SharedSky backdrop layer,
-  // so the thumbnail and the background it applies always show the same photo.
-  const oceanWaveSrc = "/assets/ocean-wave.jpg?v=20261007";
+  // Small sharpened derivative of the backdrop still: the slide is ~22vmin
+  // wide, so the full-size original would be wasted bandwidth — same photo,
+  // same cache-busting scheme as the layer SharedSky paints.
+  const oceanWaveSrc = "/assets/ocean-wave-thumb.jpg?v=20261008";
 
   const slideData: SlideData[] = [
     {

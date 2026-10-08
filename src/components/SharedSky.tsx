@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import SombreroGalaxy from "@/components/SombreroGalaxy";
 import CarouselDemo, {
   readStoredSlide,
@@ -21,16 +21,45 @@ import { useLocation } from "react-router";
  * galaxy. The sky, the timer digits/buttons and the dock itself stay intact
  * — only the background layer changes.
  */
+/** Sharpened re-encode of the Unsplash still (q95 + imgix `sharp`) and a
+ * 15s overhead clip of real breaking waves — the clip is rebuilt as a
+ * 1080p pass (lanczos upscale + unsharp, graded to the still's teal, with a
+ * reversed-tail crossfade so the loop point lands back on its first frame).
+ * Both are cache-busted so a swap can never be served stale. */
+const WAVE_STILL = "/assets/ocean-wave.jpg?v=20261008";
+const WAVE_CLIP = "/assets/ocean-wave.mp4?v=20261009";
+
 export default function SharedSky() {
   const { pathname } = useLocation();
   const path = pathname.replace(/\/+$/, "") || "/";
 
+  // the clip fades in only once it is genuinely playing, so the still (same
+  // photo, same framing) covers the gap and doubles as the fallback
+  const [wavesLive, setWavesLive] = useState(false);
+  const waveVideoRef = useRef<HTMLVideoElement>(null);
   const [selectedSlideIndex, setSelectedSlideIndex] = useState(readStoredSlide);
   const onSlideSelect = useCallback((index: number) => {
     setSelectedSlideIndex(index);
     storeSlide(index);
   }, []);
   const showOcean = selectedSlideIndex === 1;
+
+  // `autoPlay` covers a normal tab; inside a sandboxed preview iframe the
+  // autoplay permission can be withheld, so retry once the visitor touches
+  // the page — the still underneath keeps the scene intact until it starts.
+  useEffect(() => {
+    if (!showOcean) return;
+    const tryPlay = () => {
+      waveVideoRef.current?.play().catch(() => undefined);
+    };
+    tryPlay();
+    window.addEventListener("pointerdown", tryPlay, { once: true });
+    window.addEventListener("keydown", tryPlay, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", tryPlay);
+      window.removeEventListener("keydown", tryPlay);
+    };
+  }, [showOcean]);
 
   if (path !== "/" && path !== "/timer" && path !== "/clean-view") return null;
 
@@ -46,9 +75,27 @@ export default function SharedSky() {
           <img
             className="absolute inset-0 h-full w-full object-cover"
             alt="Ocean wave"
-            src="/assets/ocean-wave.jpg?v=20261007"
+            src={WAVE_STILL}
             loading="eager"
             decoding="sync"
+          />
+          {/* real footage of aerial waves breaking over the water — replaces
+              the still in place (identical framing), muted + looping */}
+          <video
+            ref={waveVideoRef}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
+              wavesLive ? "opacity-100" : "opacity-0"
+            }`}
+            src={WAVE_CLIP}
+            poster={WAVE_STILL}
+            aria-label="Aerial ocean waves"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            disablePictureInPicture
+            onPlaying={() => setWavesLive(true)}
           />
           {/* subtle darkening at the very edges only — keeps the foreground readable */}
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(3,4,9,0)_0%,rgba(3,4,9,0.18)_62%,rgba(3,4,9,0.32)_100%)]" />
